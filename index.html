@@ -836,9 +836,20 @@ window.handleListaFile = function(e) {
   if (f) readListaFile(f);
 };
 function readListaFile(f) {
+  // Try UTF-8 first, fallback to latin1 if characters look wrong
   const reader = new FileReader();
   reader.onload = function(e) {
-    document.getElementById('import-txt').value = e.target.result;
+    let text = e.target.result;
+    // If common latin chars appear garbled, re-read as latin1
+    if (text.includes('\uFFFD') || /[\x80-\x9F]/.test(text)) {
+      const r2 = new FileReader();
+      r2.onload = function(e2) {
+        document.getElementById('import-txt').value = e2.target.result;
+      };
+      r2.readAsText(f, 'ISO-8859-1');
+    } else {
+      document.getElementById('import-txt').value = text;
+    }
     document.getElementById('lista-drop-icon').textContent = '✅';
     document.getElementById('lista-drop-name').textContent = f.name;
   };
@@ -847,17 +858,28 @@ function readListaFile(f) {
 
 window.confirmImportLista = async function(){
   const txt=document.getElementById('import-txt').value.trim();
-  if(!txt) return;
+  if(!txt){toast('No hay contenido para importar','err');return;}
+  // Detectar separador automáticamente (coma o punto y coma)
+  const firstLine=txt.split('\n')[0];
+  const sep=firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
   const rows=txt.split('\n').map(line=>{
-    const p=line.split(',').map(x=>x.trim());
-    return {legajo:p[0]||'',apellido:(p[1]||'').toUpperCase(),nombre:(p[2]||'').toUpperCase(),email:(p[3]||'').toLowerCase(),año:parseInt(p[4])||new Date().getFullYear(),grupo:parseInt(p[5])||0};
-  }).filter(r=>r.email);
-  if(!rows.length){toast('Sin filas válidas','err');return;}
+    const p=line.split(sep).map(x=>x.trim());
+    if(!p[3]) return null; // sin email, saltar
+    return {
+      legajo: p[0]||'',
+      apellido: (p[1]||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),
+      nombre:   (p[2]||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),
+      email:    (p[3]||'').toLowerCase().trim(),
+      año:      parseInt(p[4])||new Date().getFullYear(),
+      grupo:    parseInt(p[5])||0
+    };
+  }).filter(r=>r&&r.email&&r.email.includes('@'));
+  if(!rows.length){toast('Sin filas válidas. Verificá el formato del CSV.','err');return;}
   await dbSet('alumnos',{});
   DB.alumnos={};
   for(const r of rows){ const k=await dbPush('alumnos',r); DB.alumnos[k]=r; }
   closeModal('alumnos-modal');
-  toast(`✅ ${rows.length} alumnos importados`);
+  toast('✅ ' + rows.length + ' alumnos importados');
   renderAlumnos();
 };
 
