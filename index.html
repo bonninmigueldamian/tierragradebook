@@ -686,67 +686,95 @@ let alumSearch='', alumGrupo='todos';
 function renderAlumnos(){
   const all=sortAlumnos(objArr(DB.alumnos));
   const grupos=[...new Set(all.map(s=>s.grupo))].sort((a,b)=>a-b);
-  const filtered=all.filter(s=>{
+  const filtered=all.filter(function(s){
     const q=alumSearch.toLowerCase();
     return (!q||(s.apellido+' '+s.nombre+' '+s.email).toLowerCase().includes(q))
       &&(alumGrupo==='todos'||String(s.grupo)===alumGrupo);
   });
   const totalNotas=objArr(DB.notas).length;
   const instancias=[...new Set(objArr(DB.notas).map(n=>n.evId))].length;
-  document.getElementById('panel-alumnos').innerHTML=`
-  <div class="sec-title">👥 Alumnos <span class="badge-count">${all.length}</span></div>
-  <div class="stats-row">
-    <div class="stat"><div class="stat-val">${all.length}</div><div class="stat-lbl">Alumnos</div></div>
-    <div class="stat"><div class="stat-val">${grupos.filter(g=>g>0).length}</div><div class="stat-lbl">Grupos</div></div>
-    <div class="stat"><div class="stat-val">${totalNotas}</div><div class="stat-lbl">Notas</div></div>
-    <div class="stat"><div class="stat-val">${instancias}</div><div class="stat-lbl">Instancias</div></div>
-  </div>
-  <div class="card">
-    <div class="flex gap items-c mb wrap no-print">
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input type="text" placeholder="Buscar..." value="${esc(alumSearch)}"
-               oninput="alumSearch=this.value;renderAlumnos()" style="width:100%">
-      </div>
-      <div class="form-group narrow" style="flex:none">
-        <select onchange="alumGrupo=this.value;renderAlumnos()">
-          <option value="todos">Todos los grupos</option>
-          ${grupos.filter(g=>g>0).map(g=>`<option value="${g}" ${alumGrupo===String(g)?'selected':''}>Grupo ${g}</option>`).join('')}
-          <option value="0" ${alumGrupo==='0'?'selected':''}>Sin grupo</option>
-        </select>
-      </div>
-      <button class="btn btn-primary btn-sm no-print" onclick="openAlumnoModal()">+ Agregar</button>
-      <button class="btn btn-outline btn-sm no-print" onclick="openImportListaModal()">📋 Importar lista</button>
-    </div>
-    <div class="tbl-wrap"><table>
-      <thead><tr>
-        <th>Apellido y Nombre</th><th>Email</th>
-        <th class="center">Legajo</th><th class="center">Año</th><th class="center">Grp</th>
-        <th class="center">Notas</th><th class="center no-print">Acciones</th>
-      </tr></thead>
-      <tbody>
-      ${filtered.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-icon">🔍</div>Sin resultados</div></td></tr>`:''}
-      ${filtered.map(s=>{
-        const cnt=objArr(DB.notas).filter(n=>String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase()).length;
-        return `<tr>
-          <td><strong>${esc(s.apellido)}</strong>, ${esc(s.nombre)}</td>
-          <td class="text-sm text-muted">${esc(s.email)}</td>
-          <td class="center">${s.legajo||'—'}</td>
-          <td class="center">${s.año||'—'}</td>
-          <td class="center">${s.grupo>0?`<span class="grup-badge">${s.grupo}</span>`:'—'}</td>
-          <td class="center"><span class="chip ${cnt>0?'chip-ok':''}">${cnt}</span></td>
-          <td class="center no-print">
-            <div style="display:flex;gap:.3rem;justify-content:center">
-              <button class="btn btn-outline btn-xs" onclick='openAlumnoModal("${s._key}")'>✏️</button>
-              <button class="btn btn-danger btn-xs" onclick='delAlumno("${s._key}","${esc(s.apellido)}")'>🗑</button>
-            </div>
-          </td>
-        </tr>`;
-      }).join('')}
-      </tbody>
-    </table></div>
-  </div>
-  <div id="alumnos-modal"></div>`;
+
+  const grpOpts = grupos.filter(function(g){return g>0;}).map(function(g){
+    return '<option value="'+g+'" '+(alumGrupo===String(g)?'selected':'')+'>Grupo '+g+'</option>';
+  }).join('');
+
+  const rowsHTML = filtered.length===0
+    ? '<tr><td colspan="7"><div class="empty"><div class="empty-icon">&#128269;</div>Sin resultados</div></td></tr>'
+    : filtered.map(function(s){
+        const cnt=objArr(DB.notas).filter(function(n){return String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase();}).length;
+        return '<tr>'+
+          '<td><strong>'+esc(s.apellido)+'</strong>, '+esc(s.nombre)+'</td>'+
+          '<td class="text-sm text-muted">'+esc(s.email)+'</td>'+
+          '<td class="center">'+esc(s.legajo||'-')+'</td>'+
+          '<td class="center">'+(s.año||'-')+'</td>'+
+          '<td class="center">'+(s.grupo>0?'<span class="grup-badge">'+s.grupo+'</span>':'-')+'</td>'+
+          '<td class="center"><span class="chip '+(cnt>0?'chip-ok':'')+'">'+cnt+'</span></td>'+
+          '<td class="center no-print"><div style="display:flex;gap:.3rem;justify-content:center">'+
+            '<button class="btn btn-outline btn-xs" data-key="'+s._key+'" data-action="edit">&#9999;</button>'+
+            '<button class="btn btn-danger btn-xs" data-key="'+s._key+'" data-name="'+esc(s.apellido)+'" data-action="del">&#128465;</button>'+
+          '</div></td>'+
+        '</tr>';
+      }).join('');
+
+  document.getElementById('panel-alumnos').innerHTML =
+    '<div class="sec-title">&#128101; Alumnos <span class="badge-count">'+all.length+'</span></div>'+
+    '<div class="stats-row">'+
+      '<div class="stat"><div class="stat-val">'+all.length+'</div><div class="stat-lbl">Alumnos</div></div>'+
+      '<div class="stat"><div class="stat-val">'+grupos.filter(function(g){return g>0;}).length+'</div><div class="stat-lbl">Grupos</div></div>'+
+      '<div class="stat"><div class="stat-val">'+totalNotas+'</div><div class="stat-lbl">Notas</div></div>'+
+      '<div class="stat"><div class="stat-val">'+instancias+'</div><div class="stat-lbl">Instancias</div></div>'+
+    '</div>'+
+    '<div class="card">'+
+      '<div class="flex gap items-c mb wrap no-print">'+
+        '<div class="search-wrap">'+
+          '<span class="search-icon">&#128269;</span>'+
+          '<input type="text" id="alum-search" placeholder="Buscar..." value="'+esc(alumSearch)+'" style="width:100%">'+
+        '</div>'+
+        '<div class="form-group narrow" style="flex:none">'+
+          '<select id="alum-grupo-sel">'+
+            '<option value="todos" '+(alumGrupo==='todos'?'selected':'')+'>Todos los grupos</option>'+
+            grpOpts+
+            '<option value="0" '+(alumGrupo==='0'?'selected':'')+'>Sin grupo</option>'+
+          '</select>'+
+        '</div>'+
+        '<button class="btn btn-primary btn-sm no-print" id="btn-agregar-alumno">+ Agregar</button>'+
+        '<button class="btn btn-outline btn-sm no-print" id="btn-importar-lista">&#128203; Importar lista</button>'+
+      '</div>'+
+      '<div class="tbl-wrap"><table>'+
+        '<thead><tr>'+
+          '<th>Apellido y Nombre</th><th>Email</th>'+
+          '<th class="center">Legajo</th><th class="center">Ano</th><th class="center">Grp</th>'+
+          '<th class="center">Notas</th><th class="center no-print">Acciones</th>'+
+        '</tr></thead>'+
+        '<tbody>'+rowsHTML+'</tbody>'+
+      '</table></div>'+
+    '</div>'+
+    '<div id="alumnos-modal"></div>';
+
+  // Attach events
+  document.getElementById('alum-search').addEventListener('input', function(){
+    alumSearch=this.value; renderAlumnos();
+  });
+  document.getElementById('alum-grupo-sel').addEventListener('change', function(){
+    alumGrupo=this.value; renderAlumnos();
+  });
+  document.getElementById('btn-agregar-alumno').addEventListener('click', function(){ openAlumnoModal(null); });
+  document.getElementById('btn-importar-lista').addEventListener('click', function(){ openImportListaModal(); });
+
+  // Table action buttons via delegation
+  document.querySelector('#panel-alumnos tbody').addEventListener('click', function(e){
+    const btn = e.target.closest('button[data-action]');
+    if(!btn) return;
+    const key = btn.dataset.key;
+    if(btn.dataset.action==='edit') openAlumnoModal(key);
+    if(btn.dataset.action==='del')  delAlumno(key, btn.dataset.name);
+  });
+
+  // Keep focus on search if user was typing
+  if(alumSearch){
+    const inp=document.getElementById('alum-search');
+    if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length,inp.value.length); }
+  }
 }
 
 window.openAlumnoModal = function(key=null){
