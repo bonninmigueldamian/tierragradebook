@@ -1018,6 +1018,101 @@ function renderImportar(){
   var btnCanc=document.getElementById('btn-cancel-imp');
   if(btnCanc) btnCanc.onclick=function(){ impPreview=[];impFile=null;impStep=2;renderImportar(); };
 }
+
+// ── CSV parsing ──────────────────────────────────────────
+function parseCSVLine(line) {
+  const fields=[]; let i=0;
+  while(i<=line.length){
+    if(i===line.length){fields.push('');break;}
+    if(line[i]==='"'){
+      let field='';i++;
+      while(i<line.length){
+        if(line[i]==='"'&&line[i+1]==='"'){field+='"';i+=2;}
+        else if(line[i]==='"'){i++;break;}
+        else{field+=line[i++];}
+      }
+      fields.push(field);if(line[i]===',')i++;else break;
+    } else {
+      let field='';
+      while(i<line.length&&line[i]!==',')field+=line[i++];
+      fields.push(field);if(line[i]===',')i++;else break;
+    }
+  }
+  return fields;
+}
+
+window.parseCSV = function() {
+  if(!impFile) return;
+  var btn=document.getElementById('btn-proc');
+  if(btn){btn.disabled=true;btn.textContent='Procesando...';}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var text=e.target.result;
+      var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
+      if(!lines.length){toast('Archivo vacio','err');if(btn){btn.disabled=false;btn.textContent='Procesar CSV';}return;}
+      var fields=parseCSVLine(lines[0]);
+      var rows=[];
+      for(var i=1;i<lines.length;i++){
+        var vals=parseCSVLine(lines[i]);
+        if(!vals.some(function(v){return v.trim();})) continue;
+        var obj={};
+        fields.forEach(function(h,j){obj[h]=vals[j]!==undefined?vals[j]:'';});
+        rows.push(obj);
+      }
+      var filtered=rows.filter(function(r){
+        var ap=r['Apellido(s)']||r['Apellidos']||'';
+        return ap.trim()&&ap.trim().toLowerCase()!=='promedio general';
+      });
+      if(!filtered.length){toast('Sin filas de alumnos en el CSV','err');if(btn){btn.disabled=false;btn.textContent='Procesar CSV';}return;}
+      var gradeCol=fields.find(function(h){return /calificaci[oó]n\//i.test(h);});
+      var maxNota=2;
+      if(gradeCol){var m=gradeCol.match(/\/(\d+[,.]\d*)/);if(m)maxNota=parseFloat(m[1].replace(',','.'))||2;}
+      var alumnos=objArr(DB.alumnos);
+      var notas=objArr(DB.notas);
+      impPreview=filtered.map(function(r){
+        var email=(r['Dirección de correo']||r['Email']||'').trim().toLowerCase();
+        var apellido=(r['Apellido(s)']||r['Apellidos']||'').trim();
+        var nombre=(r['Nombre']||'').trim();
+        var rawStr=gradeCol?(r[gradeCol]||'0'):'0';
+        var rawNota=parseFloat(rawStr.replace(',','.').replace(/[^\d.]/g,''))||0;
+        var nota=Math.round((rawNota/maxNota)*10*100)/100;
+        var existing=alumnos.find(function(s){return String(s.email||'').toLowerCase()===email;});
+        var dup=notas.find(function(n){return String(n.email||'').toLowerCase()===email&&n.raId===impRA&&n.ceId===impCE&&n.evId===impEV;});
+        return{email:email,apellido:apellido,nombre:nombre,rawNota:rawNota,nota:nota,st:!existing?'new':dup?'dup':'ok'};
+      });
+      impStep=3;
+      renderImportar();
+    }catch(err){
+      toast('Error: '+err.message,'err');
+      if(btn){btn.disabled=false;btn.textContent='Procesar CSV';}
+    }
+  };
+  reader.onerror=function(){toast('No se pudo leer el archivo','err');if(btn){btn.disabled=false;btn.textContent='Procesar CSV';}};
+  reader.readAsText(impFile,'UTF-8');
+};
+
+function readListaFile(f) {
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var text=e.target.result;
+    if(text.includes('\uFFFD')){
+      var r2=new FileReader();
+      r2.onload=function(e2){
+        document.getElementById('import-txt').value=e2.target.result;
+      };
+      r2.readAsText(f,'ISO-8859-1');
+    } else {
+      document.getElementById('import-txt').value=text;
+    }
+    var icon=document.getElementById('lista-drop-icon');
+    var name=document.getElementById('lista-drop-name');
+    if(icon) icon.textContent='✅';
+    if(name) name.textContent=f.name;
+  };
+  reader.readAsText(f,'UTF-8');
+}
+
 window.confirmImport=async function(){
   // Agregar alumnos nuevos
   for(const row of impPreview.filter(r=>r.st==='new')){
@@ -1573,6 +1668,11 @@ window.delAllNotas=async function(){
 
 // ── Logo injection ────────────────────────────────────────
 // Logos are injected via Python after generation
+
+
+// ── Global exposure ──
+window.renderGradesSummary = renderGradesSummary;
+window.readListaFile = readListaFile;
 
 // ── Expose functions to global scope (ES module) ──
 window.renderImportar = renderImportar;
