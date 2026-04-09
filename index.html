@@ -805,14 +805,45 @@ window.delAlumno = async function(key, nombre){
 window.openImportListaModal = function(){
   openModal('alumnos-modal',`
     <div class="modal-title">📋 Importar lista de alumnos</div>
-    <div class="alert alert-warn">⚠️ Reemplaza la lista completa.</div>
-    <div class="text-sm text-muted mb">CSV: <code>legajo,apellido,nombre,email,año,grupo</code></div>
-    <textarea id="import-txt" style="min-height:120px;font-family:monospace;font-size:.76rem" placeholder="14123456,GARCIA,JUAN,juan@gmail.com,2026,1"></textarea>
+    <div class="alert alert-warn">⚠️ Reemplaza la lista completa de alumnos.</div>
+    <div class="text-sm text-muted mb">Formato CSV: <code>legajo,apellido,nombre,email,año,grupo</code></div>
+    <div class="file-drop" id="lista-drop"
+         onclick="document.getElementById('lista-file-inp').click()"
+         ondragover="event.preventDefault();this.classList.add('over')"
+         ondragleave="this.classList.remove('over')"
+         ondrop="handleListaDrop(event)">
+      <div style="font-size:1.4rem" id="lista-drop-icon">📂</div>
+      <div style="font-weight:600;margin:.25rem 0" id="lista-drop-name">Click o arrastrar CSV aquí</div>
+      <div class="text-sm text-muted">Archivo .csv con la lista de alumnos</div>
+    </div>
+    <input type="file" id="lista-file-inp" accept=".csv" onchange="handleListaFile(event)">
+    <div class="text-sm text-muted" style="margin:.6rem 0 .3rem">O pegá el contenido directamente:</div>
+    <textarea id="import-txt" style="min-height:80px;font-family:monospace;font-size:.76rem" placeholder="14123456,GARCIA,JUAN,juan@gmail.com,2026,1"></textarea>
     <div class="btn-group" style="margin-top:.75rem">
       <button class="btn btn-ok" onclick="confirmImportLista()">✅ Importar</button>
       <button class="btn btn-outline" onclick="closeModal('alumnos-modal')">Cancelar</button>
     </div>`);
 };
+
+window.handleListaDrop = function(e) {
+  e.preventDefault();
+  document.getElementById('lista-drop').classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f) readListaFile(f);
+};
+window.handleListaFile = function(e) {
+  const f = e.target.files[0];
+  if (f) readListaFile(f);
+};
+function readListaFile(f) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('import-txt').value = e.target.result;
+    document.getElementById('lista-drop-icon').textContent = '✅';
+    document.getElementById('lista-drop-name').textContent = f.name;
+  };
+  reader.readAsText(f, 'UTF-8');
+}
 
 window.confirmImportLista = async function(){
   const txt=document.getElementById('import-txt').value.trim();
