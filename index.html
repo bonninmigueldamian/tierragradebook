@@ -1409,21 +1409,22 @@ window.saveConfig=async function(){
 window.openRAModal=function(key){
   const r=key?DB.ra[key]:null;
   const displayId = r ? (r.id||key) : '';
-  openModal('config-modal',
-    '<div class="modal-title">'+(r?'✏️ Editar RA':'+ Nuevo RA')+'</div>'+
+  const content =
+    '<div class="modal-title">'+(r?'&#9999;&#65039; Editar RA':'+ Nuevo RA')+'</div>'+
     '<div class="form-row">'+
       '<div class="form-group narrow"><label>ID (ej: RA01)</label>'+
         '<input type="text" id="ra-id" value="'+esc(displayId)+'" '+(r?'disabled':'')+'></div>'+
-      '<div class="form-group narrow"><label>Peso (0–1)</label>'+
+      '<div class="form-group narrow"><label>Peso (0-1)</label>'+
         '<input type="number" id="ra-peso" value="'+(r?r.peso:0.1)+'" step="0.05" min="0" max="1"></div>'+
     '</div>'+
-    '<div class="form-group mb2"><label>Descripción</label>'+
+    '<div class="form-group mb2"><label>Descripcion</label>'+
       '<textarea id="ra-nom">'+esc(r?r.nombre||'':'')+'</textarea></div>'+
     '<div class="btn-group">'+
-      '<button class="btn btn-ok" onclick="saveRA(''+(key||'')+'')">💾 Guardar</button>'+
+      '<button class="btn btn-ok" id="ra-save-btn">Guardar</button>'+
       '<button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>'+
-    '</div>'
-  );
+    '</div>';
+  openModal('config-modal', content);
+  document.getElementById('ra-save-btn').onclick = function(){ saveRA(key||null); };
 };
 window.saveRA=async function(key){
   const rawId=(key||document.getElementById('ra-id').value.trim().toUpperCase());
@@ -1451,30 +1452,30 @@ window.delRA=async function(key){
 window.openCEModal=function(key){
   const c=key?DB.ce[key]:null;
   const raArr=objArr(DB.ra).sort((a,b)=>a._key.localeCompare(b._key));
-  // Show original ID (with dots) if available, else encoded key
   const displayId = c ? (c.id||key.replace(/_/g,'.')) : '';
   const raOpts = raArr.map(r=>{
     const displayRA = r.id||r._key;
     const sel = c&&(c.raId===r._key||c.raId===r.id) ? 'selected' : '';
     return '<option value="'+r._key+'" '+sel+'>'+esc(displayRA)+'</option>';
   }).join('');
-  openModal('config-modal',
-    '<div class="modal-title">'+(c?'✏️ Editar CE':'+ Nuevo CE')+'</div>'+
+  const content =
+    '<div class="modal-title">'+(c?'&#9999;&#65039; Editar CE':'+ Nuevo CE')+'</div>'+
     '<div class="form-row">'+
       '<div class="form-group narrow"><label>ID (ej: C.E.01.01)</label>'+
         '<input type="text" id="ce-id" value="'+esc(displayId)+'" '+(c?'disabled':'')+'></div>'+
       '<div class="form-group narrow"><label>RA</label>'+
         '<select id="ce-ra">'+raOpts+'</select></div>'+
-      '<div class="form-group narrow"><label>Peso (0–1)</label>'+
+      '<div class="form-group narrow"><label>Peso (0-1)</label>'+
         '<input type="number" id="ce-peso" value="'+(c?c.peso:0.2)+'" step="0.05" min="0" max="1"></div>'+
     '</div>'+
-    '<div class="form-group mb2"><label>Descripción</label>'+
+    '<div class="form-group mb2"><label>Descripcion</label>'+
       '<textarea id="ce-nom">'+esc(c?c.nombre||'':'')+'</textarea></div>'+
     '<div class="btn-group">'+
-      '<button class="btn btn-ok" onclick="saveCE(''+(key||'')+'')">💾 Guardar</button>'+
+      '<button class="btn btn-ok" id="ce-save-btn">Guardar</button>'+
       '<button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>'+
-    '</div>'
-  );
+    '</div>';
+  openModal('config-modal', content);
+  document.getElementById('ce-save-btn').onclick = function(){ saveCE(key||null); };
 };
 window.saveCE=async function(key){
   const rawId=(key||document.getElementById('ce-id').value.trim());
