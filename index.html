@@ -901,7 +901,12 @@ window.confirmImportLista = async function(){
 let impStep=1,impRA='',impCE='',impEV='',impPreview=[],impFile=null;
 
 function renderImportar(){
-  const ces=impRA?objArr(DB.ce).filter(c=>c.raId===impRA):[];
+  const ces=impRA?objArr(DB.ce).filter(c=>{
+    const raKey = c.raId||'';
+    // Match by encoded key, original id, or direct comparison
+    return raKey===impRA || raKey===impRA.replace(/_/g,'.') || 
+           (DB.ra[impRA] && (raKey===(DB.ra[impRA].id||impRA)));
+  }):[];
   const step1=impRA&&impCE&&impEV;
   const gradesSummary=renderGradesSummary();
   document.getElementById('panel-importar').innerHTML=`
@@ -918,21 +923,21 @@ function renderImportar(){
         <label>RA</label>
         <select onchange="impRA=this.value;impCE='';impPreview=[];impStep=1;renderImportar()">
           <option value="">— RA —</option>
-          ${objArr(DB.ra).map(r=>`<option value="${r._key}" ${impRA===r._key?'selected':''}>${r._key}</option>`).join('')}
+          ${objArr(DB.ra).map(r=>`<option value="${r._key}" ${impRA===r._key?'selected':''}>${r.id||r._key}</option>`).join('')}
         </select>
       </div>
       <div class="form-group wide">
         <label>Criterio de Evaluación</label>
         <select onchange="impCE=this.value;impPreview=[];impStep=1;renderImportar()">
           <option value="">— CE —</option>
-          ${ces.map(c=>`<option value="${c._key}" ${impCE===c._key?'selected':''}>${c._key} — ${esc(String(c.nombre||'').substring(0,50))}</option>`).join('')}
+          ${ces.map(c=>`<option value="${c._key}" ${impCE===c._key?'selected':''}>${c.id||c._key} — ${esc(String(c.nombre||'').substring(0,50))}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
         <label>Instancia</label>
         <select onchange="impEV=this.value;impPreview=[];impStep=1;renderImportar()">
           <option value="">— EV —</option>
-          ${objArr(DB.ev).map(e=>`<option value="${e._key}" ${impEV===e._key?'selected':''}>${e._key} — ${esc(e.nombre||'')}</option>`).join('')}
+          ${objArr(DB.ev).map(e=>`<option value="${e._key}" ${impEV===e._key?'selected':''}>${e._key}${e.nombre?' — '+esc(e.nombre):''}</option>`).join('')}
         </select>
       </div>
     </div>
