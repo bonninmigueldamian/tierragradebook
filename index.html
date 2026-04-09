@@ -1092,26 +1092,6 @@ window.parseCSV = function() {
   reader.readAsText(impFile,'UTF-8');
 };
 
-function readListaFile(f) {
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var text=e.target.result;
-    if(text.includes('\uFFFD')){
-      var r2=new FileReader();
-      r2.onload=function(e2){
-        document.getElementById('import-txt').value=e2.target.result;
-      };
-      r2.readAsText(f,'ISO-8859-1');
-    } else {
-      document.getElementById('import-txt').value=text;
-    }
-    var icon=document.getElementById('lista-drop-icon');
-    var name=document.getElementById('lista-drop-name');
-    if(icon) icon.textContent='✅';
-    if(name) name.textContent=f.name;
-  };
-  reader.readAsText(f,'UTF-8');
-}
 
 window.confirmImport=async function(){
   // Agregar alumnos nuevos
