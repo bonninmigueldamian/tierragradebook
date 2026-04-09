@@ -1188,50 +1188,57 @@ function renderRepInstancia(){
   const evIds = [...new Set(notas.map(n=>n.evId))].sort();
   const evOpts = evIds.map(function(e){
     const ev=DB.ev[e];
-    return '<option value="'+e+'" '+(repEV===e?'selected':'')+'>'+(e)+(ev?' — '+esc(ev.nombre):'')+'</option>';
+    return '<option value="'+e+'" '+(repEV===e?'selected':'')+'>'+e+(ev?' - '+esc(ev.nombre):'')+' </option>';
   }).join('');
-
-  let html =
+  const selHTML =
     '<div class="card no-print">'+
-      '<div class="form-group" style="max-width:380px">'+
-        '<label>Instancia de Evaluacion</label>'+
-        '<select id="rep-ev-sel">'+
-          '<option value="">— Seleccionar —</option>'+evOpts+
-        '</select>'+
-      '</div>'+
-      (repEV?'<button class="btn btn-outline btn-sm" id="btn-rep-print" style="margin-top:.5rem">&#128424; Imprimir</button>':'')+
+    '<div class="form-group" style="max-width:420px">'+
+    '<label>Instancia de Evaluacion</label>'+
+    '<select id="rep-ev-sel"><option value="">- Seleccionar -</option>'+evOpts+'</select>'+
+    '</div>'+
+    (repEV?'<button class="btn btn-outline btn-sm" id="btn-rep-print" style="margin-top:.5rem">Imprimir</button>':'')+
     '</div>';
-
+  const attachSel = function(){
+    const s=document.getElementById('rep-ev-sel');
+    if(s) s.addEventListener('change', function(){ repEV=this.value; renderRepInstancia(); });
+    const bp=document.getElementById('btn-rep-print');
+    if(bp) bp.onclick=function(){ window.print(); };
+  };
   if(!repEV){
-    document.getElementById('rep-body').innerHTML = html;
-    document.getElementById('rep-ev-sel').addEventListener('change', function(){
-      repEV=this.value; renderRepInstancia();
-    });
-    return;
+    document.getElementById('rep-body').innerHTML = selHTML +
+      '<div class="alert alert-info">Selecciona una instancia para ver el reporte.</div>';
+    attachSel(); return;
   }
-
-  const gradsEV = notas.filter(n=>n.evId===repEV);
+  const gradsEV = notas.filter(function(n){ return n.evId===repEV; });
   if(!gradsEV.length){
-    document.getElementById('rep-body').innerHTML = html+'<div class="alert alert-warn">Sin notas para esta instancia.</div>';
-    document.getElementById('rep-ev-sel').addEventListener('change', function(){ repEV=this.value; renderRepInstancia(); });
-    return;
+    document.getElementById('rep-body').innerHTML = selHTML +
+      '<div class="alert alert-warn">No hay notas para '+esc(repEV)+'. Importa un CSV primero.</div>';
+    attachSel(); return;
   }
-
-  const ceIds=[...new Set(gradsEV.map(n=>n.ceId))].sort();
+  const ceIds=[...new Set(gradsEV.map(function(n){return n.ceId;}))].sort();
   const alumnos=sortAlumnos(objArr(DB.alumnos));
-  const students=alumnos.filter(s=>gradsEV.some(n=>String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase())).map(function(s){
-    var cells=ceIds.map(function(ceId){
-      var n=gradsEV.find(function(x){return String(x.email||'').toLowerCase()===String(s.email||'').toLowerCase()&&x.ceId===ceId;});
-      return n?buildCell(n.nota):'<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
+  const students=alumnos.filter(function(s){
+    return gradsEV.some(function(n){
+      return String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase();
+    });
+  }).map(function(s){
+    const cells=ceIds.map(function(ceId){
+      const n=gradsEV.find(function(x){
+        return String(x.email||'').toLowerCase()===String(s.email||'').toLowerCase()&&x.ceId===ceId;
+      });
+      return n?buildCell(n.nota):'<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
     });
     return Object.assign({},s,{_cells:cells});
   });
   const ev=DB.ev[repEV];
-  html += '<div class="card"><div class="card-title">'+esc(ev?ev.nombre:repEV)+'</div>'+buildRepTable(students,ceIds)+'</div>';
-  document.getElementById('rep-body').innerHTML = html;
-  document.getElementById('rep-ev-sel').addEventListener('change', function(){ repEV=this.value; renderRepInstancia(); });
-  var btnPrint=document.getElementById('btn-rep-print');
-  if(btnPrint) btnPrint.onclick=function(){ window.print(); };
+  document.getElementById('rep-body').innerHTML =
+    selHTML +
+    (students.length===0?
+      '<div class="alert alert-warn">Sin alumnos con notas en esta instancia.</div>' :
+      '<div class="card"><div class="card-title">'+esc(ev?ev.nombre:repEV)+
+      ' - <span class="chip">'+students.length+' alumnos</span></div>'+
+      buildRepTable(students,ceIds)+'</div>');
+  attachSel();
 }
 
 function renderRepRACE(){
