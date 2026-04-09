@@ -1153,93 +1153,85 @@ window.delGrpNotas=async function(raId,ceId,evId){
 let repType='instancia',repEV='',repLevels=[],repNivelMode='any';
 
 function renderReportes(){
-  const titles={instancia:'Reporte por Instancia',race:'Mejor Nota por RA/CE',nivel:'Filtro por Nivel'};
-  document.getElementById('panel-reportes').innerHTML=`
-  <div class="print-header">
-    <h2>TierraGradeBook — ${titles[repType]||'Reporte'}</h2>
-    <p>${esc(DB.config.materia||'')} | Año ${DB.config.año||''} | ${new Date().toLocaleDateString('es-AR')}</p>
-  </div>
-  <div class="sec-title no-print">📊 Reportes</div>
-  <div class="rep-grid no-print">
-    <div class="rep-card ${repType==='instancia'?'sel':''}" onclick="repType='instancia';renderReportes()">
-      <div class="rep-icon">📋</div><div class="rep-title">Por Instancia</div>
-      <div class="rep-desc">Notas de una evaluación por RA y Criterio.</div>
-    </div>
-    <div class="rep-card ${repType==='race'?'sel':''}" onclick="repType='race';renderReportes()">
-      <div class="rep-icon">🏆</div><div class="rep-title">Mejor Nota por RA/CE</div>
-      <div class="rep-desc">Mejor nota por alumno considerando todas las instancias.</div>
-    </div>
-    <div class="rep-card ${repType==='nivel'?'sel':''}" onclick="repType='nivel';renderReportes()">
-      <div class="rep-icon">🎯</div><div class="rep-title">Filtro por Nivel</div>
-      <div class="rep-desc">Alumnos con al menos un criterio en el nivel seleccionado.</div>
-    </div>
-  </div>
-  <div id="rep-cfg-panel"></div>
-  <div id="rep-body"></div>`;
+  document.getElementById('panel-reportes').innerHTML =
+    '<div class="print-header"><h2>TierraGradeBook</h2>'+
+    '<p>'+esc(DB.config.materia||'')+' | '+new Date().toLocaleDateString('es-AR')+'</p></div>'+
+    '<div class="sec-title no-print">&#128202; Reportes</div>'+
+    '<div class="rep-grid no-print" id="rep-type-grid">'+
+      '<div class="rep-card '+(repType==='instancia'?'sel':'')+'" id="rcard-instancia">'+
+        '<div class="rep-icon">&#128203;</div><div class="rep-title">Por Instancia</div>'+
+        '<div class="rep-desc">Notas de una evaluacion por RA y Criterio.</div></div>'+
+      '<div class="rep-card '+(repType==='race'?'sel':'')+'" id="rcard-race">'+
+        '<div class="rep-icon">&#127942;</div><div class="rep-title">Mejor Nota por RA/CE</div>'+
+        '<div class="rep-desc">Mejor nota por alumno considerando todas las instancias.</div></div>'+
+      '<div class="rep-card '+(repType==='nivel'?'sel':'')+'" id="rcard-nivel">'+
+        '<div class="rep-icon">&#127919;</div><div class="rep-title">Filtro por Nivel</div>'+
+        '<div class="rep-desc">Alumnos con al menos un criterio en el nivel seleccionado.</div></div>'+
+    '</div>'+
+    '<div id="rep-cfg-panel"></div>'+
+    '<div id="rep-body"></div>';
+
+  // Attach card click events
+  document.getElementById('rcard-instancia').onclick = function(){ repType='instancia'; renderReportes(); };
+  document.getElementById('rcard-race').onclick       = function(){ repType='race';      renderReportes(); };
+  document.getElementById('rcard-nivel').onclick      = function(){ repType='nivel';     renderReportes(); };
+
   loadCellMode();
-  document.getElementById('rep-cfg-panel').innerHTML=renderCfgPanel();
+  document.getElementById('rep-cfg-panel').innerHTML = renderCfgPanel();
   if(repType==='instancia') renderRepInstancia();
   else if(repType==='race') renderRepRACE();
   else renderRepNivel();
 }
 
-function getRepHeader(title,showPrint=true){
-  return `<div class="card no-print"><div class="flex gap items-c wrap">
-    ${title}
-    ${showPrint?'<button class="btn btn-outline btn-sm ml-auto" onclick="window.print()">🖨️ Imprimir</button>':''}
-  </div></div>`;
-}
-
-function buildRepTable(students, ceIds){
-  const raIds=[...new Set(ceIds.map(ceId=>{const c=DB.ce[ceId];return c?c.raId:'?'}))].sort();
-  const cesByRa={};
-  raIds.forEach(ra=>{cesByRa[ra]=ceIds.filter(ceId=>DB.ce[ceId]&&DB.ce[ceId].raId===ra);});
-  return `<div class="tbl-wrap" style="max-height:600px;overflow-y:auto"><table>
-    <thead>
-      <tr>
-        <th rowspan="2">Alumno</th><th rowspan="2" class="center">Grp</th>
-        ${raIds.map(ra=>`<th colspan="${cesByRa[ra].length}" class="center" style="background:var(--navy3)">${esc(ra)}</th>`).join('')}
-      </tr>
-      <tr>${ceIds.map(ceId=>`<th class="center">${esc(ceId)}</th>`).join('')}</tr>
-    </thead>
-    <tbody>
-    ${students.map(s=>`<tr>
-      <td><strong>${esc(s.apellido)}</strong>, ${esc(s.nombre)}</td>
-      <td class="center">${s.grupo>0?`<span class="grup-badge">${s.grupo}</span>`:'—'}</td>
-      ${s._cells.join('')}
-    </tr>`).join('')}
-    </tbody>
-  </table></div>`;
-}
-
 function renderRepInstancia(){
-  const notas=objArr(DB.notas);
-  const evIds=[...new Set(notas.map(n=>n.evId))].sort();
-  let html=`<div class="card no-print"><div class="form-row items-c">
-    <div class="form-group">
-      <label>Instancia de Evaluación</label>
-      <select onchange="repEV=this.value;renderRepInstancia()">
-        <option value="">— Seleccionar —</option>
-        ${evIds.map(e=>{const ev=DB.ev[e];return `<option value="${e}" ${repEV===e?'selected':''}>${e}${ev?' — '+esc(ev.nombre):''}</option>`;}).join('')}
-      </select>
-    </div>
-    ${repEV?'<button class="btn btn-outline btn-sm" style="align-self:flex-end" onclick="window.print()">🖨️ Imprimir</button>':''}
-  </div></div>`;
-  if(!repEV){document.getElementById('rep-body').innerHTML=html;return;}
-  const gradsEV=notas.filter(n=>n.evId===repEV);
-  if(!gradsEV.length){document.getElementById('rep-body').innerHTML=html+'<div class="alert alert-warn">Sin notas para esta instancia.</div>';return;}
+  const notas = objArr(DB.notas);
+  const evIds = [...new Set(notas.map(n=>n.evId))].sort();
+  const evOpts = evIds.map(function(e){
+    const ev=DB.ev[e];
+    return '<option value="'+e+'" '+(repEV===e?'selected':'')+'>'+(e)+(ev?' — '+esc(ev.nombre):'')+'</option>';
+  }).join('');
+
+  let html =
+    '<div class="card no-print">'+
+      '<div class="form-group" style="max-width:380px">'+
+        '<label>Instancia de Evaluacion</label>'+
+        '<select id="rep-ev-sel">'+
+          '<option value="">— Seleccionar —</option>'+evOpts+
+        '</select>'+
+      '</div>'+
+      (repEV?'<button class="btn btn-outline btn-sm" id="btn-rep-print" style="margin-top:.5rem">&#128424; Imprimir</button>':'')+
+    '</div>';
+
+  if(!repEV){
+    document.getElementById('rep-body').innerHTML = html;
+    document.getElementById('rep-ev-sel').addEventListener('change', function(){
+      repEV=this.value; renderRepInstancia();
+    });
+    return;
+  }
+
+  const gradsEV = notas.filter(n=>n.evId===repEV);
+  if(!gradsEV.length){
+    document.getElementById('rep-body').innerHTML = html+'<div class="alert alert-warn">Sin notas para esta instancia.</div>';
+    document.getElementById('rep-ev-sel').addEventListener('change', function(){ repEV=this.value; renderRepInstancia(); });
+    return;
+  }
+
   const ceIds=[...new Set(gradsEV.map(n=>n.ceId))].sort();
   const alumnos=sortAlumnos(objArr(DB.alumnos));
-  const students=alumnos.filter(s=>gradsEV.some(n=>String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase())).map(s=>{
-    const cells=ceIds.map(ceId=>{
-      const n=gradsEV.find(x=>String(x.email||'').toLowerCase()===String(s.email||'').toLowerCase()&&x.ceId===ceId);
+  const students=alumnos.filter(s=>gradsEV.some(n=>String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase())).map(function(s){
+    var cells=ceIds.map(function(ceId){
+      var n=gradsEV.find(function(x){return String(x.email||'').toLowerCase()===String(s.email||'').toLowerCase()&&x.ceId===ceId;});
       return n?buildCell(n.nota):'<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
     });
-    return{...s,_cells:cells};
+    return Object.assign({},s,{_cells:cells});
   });
   const ev=DB.ev[repEV];
-  html+=`<div class="card"><div class="card-title">📋 ${esc(ev?ev.nombre:repEV)}</div>${buildRepTable(students,ceIds)}</div>`;
-  document.getElementById('rep-body').innerHTML=html;
+  html += '<div class="card"><div class="card-title">'+esc(ev?ev.nombre:repEV)+'</div>'+buildRepTable(students,ceIds)+'</div>';
+  document.getElementById('rep-body').innerHTML = html;
+  document.getElementById('rep-ev-sel').addEventListener('change', function(){ repEV=this.value; renderRepInstancia(); });
+  var btnPrint=document.getElementById('btn-rep-print');
+  if(btnPrint) btnPrint.onclick=function(){ window.print(); };
 }
 
 function renderRepRACE(){
@@ -1247,64 +1239,105 @@ function renderRepRACE(){
   if(!notas.length){document.getElementById('rep-body').innerHTML='<div class="alert alert-warn">Sin notas cargadas.</div>';return;}
   const ceIds=[...new Set(notas.map(n=>n.ceId))].sort();
   const alumnos=sortAlumnos(objArr(DB.alumnos));
-  const students=alumnos.filter(s=>ceIds.some(ceId=>{const c=DB.ce[ceId];return c&&getBestNota(s.email,c.raId,ceId)!==null;})).map(s=>{
-    const cells=ceIds.map(ceId=>{
-      const c=DB.ce[ceId];if(!c) return '<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
-      const best=getBestNota(s.email,c.raId,ceId);
+  const students=alumnos.filter(function(s){
+    return ceIds.some(function(ceId){var c=DB.ce[ceId];return c&&getBestNota(s.email,c.raId,ceId)!==null;});
+  }).map(function(s){
+    var cells=ceIds.map(function(ceId){
+      var c=DB.ce[ceId];if(!c) return '<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
+      var best=getBestNota(s.email,c.raId,ceId);
       return best!==null?buildCell(best):'<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
     });
-    return{...s,_cells:cells};
+    return Object.assign({},s,{_cells:cells});
   });
-  document.getElementById('rep-body').innerHTML=`
-    <div class="card no-print flex gap items-c wrap mb">
-      <span class="text-sm text-muted">Mejor nota por alumno y criterio, todas las instancias.</span>
-      <button class="btn btn-outline btn-sm ml-auto" onclick="window.print()">🖨️ Imprimir</button>
-    </div>
-    <div class="card"><div class="card-title">🏆 Mejor Nota por Criterio</div>${buildRepTable(students,ceIds)}</div>`;
+  document.getElementById('rep-body').innerHTML=
+    '<div class="card no-print flex gap items-c wrap mb">'+
+      '<span class="text-sm text-muted">Mejor nota por alumno y criterio.</span>'+
+      '<button class="btn btn-outline btn-sm ml-auto" id="btn-race-print">&#128424; Imprimir</button>'+
+    '</div>'+
+    '<div class="card"><div class="card-title">&#127942; Mejor Nota por Criterio</div>'+buildRepTable(students,ceIds)+'</div>';
+  var bp=document.getElementById('btn-race-print');
+  if(bp) bp.onclick=function(){window.print();};
 }
 
 function renderRepNivel(){
   const notas=objArr(DB.notas);
   const allCeIds=[...new Set(notas.map(n=>n.ceId))].sort();
   const niveles=getNivelArr();
-  let html=`<div class="card no-print">
-    <div class="card-title">Filtrar por Nivel</div>
-    <div class="niv-filters">
-      ${niveles.map(l=>`<button class="niv-fbtn ${repLevels.includes(l.code)?'on-'+l.code:''}" onclick="toggleNivLevel('${l.code}')">${esc(l.nombre)} (${l.desde}–${l.hasta>=10?10:l.hasta})</button>`).join('')}
-    </div>
-    ${repLevels.length?`<div class="form-row" style="margin-top:.6rem;margin-bottom:.2rem">
-      <div class="form-group" style="max-width:360px">
-        <label>Condición</label>
-        <select onchange="repNivelMode=this.value;renderRepNivel()">
-          <option value="any" ${repNivelMode==='any'?'selected':''}>Al menos una nota en los niveles</option>
-          <option value="all" ${repNivelMode==='all'?'selected':''}>Todas las notas en los niveles</option>
-        </select>
-      </div>
-    </div>`:''}
-    <button class="btn btn-outline btn-sm" style="margin-top:.5rem" onclick="window.print()">🖨️ Imprimir</button>
-  </div>`;
-  if(!repLevels.length){document.getElementById('rep-body').innerHTML=html+'<div class="alert alert-info">Seleccioná al menos un nivel.</div>';return;}
-  if(!notas.length){document.getElementById('rep-body').innerHTML=html+'<div class="alert alert-warn">Sin notas cargadas.</div>';return;}
-  const levelNames=repLevels.map(c=>niveles.find(l=>l.code===c)?.nombre).join(', ');
+
+  const nivelBtns=niveles.map(function(l){
+    return '<button class="niv-fbtn '+(repLevels.includes(l.code)?'on-'+l.code:'')+'" data-code="'+l.code+'">'+
+      esc(l.nombre)+' ('+l.desde+'–'+(l.hasta>=10?10:l.hasta)+')</button>';
+  }).join('');
+
+  let html=
+    '<div class="card no-print">'+
+      '<div class="card-title">Filtrar por Nivel</div>'+
+      '<div class="niv-filters" id="niv-filters-wrap">'+nivelBtns+'</div>'+
+      (repLevels.length?
+        '<div class="form-row" style="margin-top:.6rem">'+
+          '<div class="form-group" style="max-width:360px">'+
+            '<label>Condicion</label>'+
+            '<select id="nivel-mode-sel">'+
+              '<option value="any" '+(repNivelMode==='any'?'selected':'')+'>Al menos una nota en los niveles</option>'+
+              '<option value="all" '+(repNivelMode==='all'?'selected':'')+'>Todas las notas en los niveles</option>'+
+            '</select>'+
+          '</div>'+
+        '</div>'
+      :'')+
+      '<button class="btn btn-outline btn-sm" id="btn-nivel-print" style="margin-top:.5rem">&#128424; Imprimir</button>'+
+    '</div>';
+
+  if(!repLevels.length){
+    document.getElementById('rep-body').innerHTML=html+'<div class="alert alert-info">Selecciona al menos un nivel.</div>';
+    attachNivelEvents();
+    return;
+  }
+  if(!notas.length){
+    document.getElementById('rep-body').innerHTML=html+'<div class="alert alert-warn">Sin notas cargadas.</div>';
+    attachNivelEvents();
+    return;
+  }
+
+  const levelNames=repLevels.map(function(c){var l=niveles.find(function(x){return x.code===c;});return l?l.nombre:c;}).join(', ');
   const alumnos=sortAlumnos(objArr(DB.alumnos));
-  const filtered=alumnos.filter(s=>{
-    const ceConNotas=allCeIds.filter(ceId=>{const c=DB.ce[ceId];return c&&getBestNota(s.email,c.raId,ceId)!==null;});
+  const filtered=alumnos.filter(function(s){
+    var ceConNotas=allCeIds.filter(function(ceId){var c=DB.ce[ceId];return c&&getBestNota(s.email,c.raId,ceId)!==null;});
     if(!ceConNotas.length) return false;
-    if(repNivelMode==='any') return ceConNotas.some(ceId=>{const c=DB.ce[ceId];const best=getBestNota(s.email,c.raId,ceId);const nv=getNivel(best);return nv&&repLevels.includes(nv.code);});
-    return ceConNotas.every(ceId=>{const c=DB.ce[ceId];const best=getBestNota(s.email,c.raId,ceId);const nv=getNivel(best);return nv&&repLevels.includes(nv.code);});
-  }).map(s=>{
-    const cells=allCeIds.map(ceId=>{
-      const c=DB.ce[ceId];if(!c) return '<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
-      const best=getBestNota(s.email,c.raId,ceId);
+    if(repNivelMode==='any') return ceConNotas.some(function(ceId){var c=DB.ce[ceId];var best=getBestNota(s.email,c.raId,ceId);var nv=getNivel(best);return nv&&repLevels.includes(nv.code);});
+    return ceConNotas.every(function(ceId){var c=DB.ce[ceId];var best=getBestNota(s.email,c.raId,ceId);var nv=getNivel(best);return nv&&repLevels.includes(nv.code);});
+  }).map(function(s){
+    var cells=allCeIds.map(function(ceId){
+      var c=DB.ce[ceId];if(!c) return '<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
+      var best=getBestNota(s.email,c.raId,ceId);
       return best!==null?buildCell(best):'<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
     });
-    return{...s,_cells:cells};
+    return Object.assign({},s,{_cells:cells});
   });
-  html+=`<div class="card">
-    <div class="card-title">🎯 Nivel: <strong>${esc(levelNames)}</strong> — <span class="chip">${filtered.length} alumnos</span></div>
-    ${filtered.length===0?'<div class="empty">Sin alumnos que cumplan la condición</div>':buildRepTable(filtered,allCeIds)}
-  </div>`;
+
+  html+=
+    '<div class="card">'+
+      '<div class="card-title">Nivel: <strong>'+esc(levelNames)+'</strong> <span class="chip">'+filtered.length+' alumnos</span></div>'+
+      (filtered.length===0?'<div class="empty">Sin alumnos que cumplan la condicion</div>':buildRepTable(filtered,allCeIds))+
+    '</div>';
+
   document.getElementById('rep-body').innerHTML=html;
+  attachNivelEvents();
+}
+
+function attachNivelEvents(){
+  var wrap=document.getElementById('niv-filters-wrap');
+  if(wrap) wrap.querySelectorAll('.niv-fbtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var code=this.dataset.code;
+      if(repLevels.includes(code)) repLevels=repLevels.filter(function(l){return l!==code;});
+      else repLevels.push(code);
+      renderRepNivel();
+    });
+  });
+  var modeSel=document.getElementById('nivel-mode-sel');
+  if(modeSel) modeSel.addEventListener('change', function(){ repNivelMode=this.value; renderRepNivel(); });
+  var btnPrint=document.getElementById('btn-nivel-print');
+  if(btnPrint) btnPrint.onclick=function(){window.print();};
 }
 
 window.toggleNivLevel=function(code){
