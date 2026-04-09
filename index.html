@@ -1213,35 +1213,52 @@ function renderReportes(){
 
 function renderRepInstancia(){
   const notas = objArr(DB.notas);
-  const evIds = [...new Set(notas.map(n=>n.evId))].sort();
-  const evOpts = evIds.map(function(e){
-    const ev=DB.ev[e];
-    return '<option value="'+e+'" '+(repEV===e?'selected':'')+'>'+e+(ev?' - '+esc(ev.nombre):'')+' </option>';
-  }).join('');
-  const selHTML =
-    '<div class="card no-print">'+
-    '<div class="form-group" style="max-width:420px">'+
-    '<label>Instancia de Evaluacion</label>'+
-    '<select id="rep-ev-sel"><option value="">- Seleccionar -</option>'+evOpts+'</select>'+
-    '</div>'+
-    (repEV?'<button class="btn btn-outline btn-sm" id="btn-rep-print" style="margin-top:.5rem">Imprimir</button>':'')+
-    '</div>';
-  const attachSel = function(){
-    const s=document.getElementById('rep-ev-sel');
-    if(s) s.addEventListener('change', function(){ repEV=this.value; renderRepInstancia(); });
-    const bp=document.getElementById('btn-rep-print');
-    if(bp) bp.onclick=function(){ window.print(); };
-  };
-  if(!repEV){
-    document.getElementById('rep-body').innerHTML = selHTML +
-      '<div class="alert alert-info">Selecciona una instancia para ver el reporte.</div>';
-    attachSel(); return;
+  const evIds = [...new Set(notas.map(n=>String(n.evId||'').trim()))].sort();
+
+  // Render selector card separately so it persists
+  const selCard = document.getElementById('rep-inst-sel-card');
+  if(!selCard){
+    // First render - create the selector
+    const evOpts = '<option value="">- Seleccionar -</option>'+
+      evIds.map(function(e){
+        const ev=DB.ev[e];
+        return '<option value="'+e+'" '+(repEV===e?'selected':'')+'>'+e+(ev?' - '+esc(ev.nombre):'')+'</option>';
+      }).join('');
+    document.getElementById('rep-body').innerHTML =
+      '<div class="card no-print" id="rep-inst-sel-card">'+
+        '<div class="form-group" style="max-width:420px">'+
+          '<label>Instancia de Evaluacion</label>'+
+          '<select id="rep-ev-sel">'+evOpts+'</select>'+
+        '</div>'+
+        '<button class="btn btn-outline btn-sm" id="btn-rep-print" style="margin-top:.5rem;display:none">Imprimir</button>'+
+      '</div>'+
+      '<div id="rep-inst-result"></div>';
+    document.getElementById('rep-ev-sel').addEventListener('change', function(){
+      repEV=this.value;
+      document.getElementById('btn-rep-print').style.display=repEV?'':'none';
+      renderInstResult();
+    });
+    document.getElementById('btn-rep-print').onclick=function(){ window.print(); };
+  } else {
+    // Selector already exists - just update dropdown options if needed
+    const sel=document.getElementById('rep-ev-sel');
+    if(sel && sel.value !== repEV) sel.value = repEV;
   }
-  const gradsEV = notas.filter(function(n){ return n.evId===repEV; });
+  renderInstResult();
+}
+
+function renderInstResult(){
+  const result=document.getElementById('rep-inst-result');
+  if(!result) return;
+  if(!repEV){
+    result.innerHTML='<div class="alert alert-info">Selecciona una instancia para ver el reporte.</div>';
+    return;
+  }
+  const notas=objArr(DB.notas);
+  const gradsEV=notas.filter(function(n){ return String(n.evId||'').trim()===repEV; });
   if(!gradsEV.length){
-    document.getElementById('rep-body').innerHTML = selHTML +
-      '<div class="alert alert-warn">No hay notas para '+esc(repEV)+'. Importa un CSV primero.</div>';
-    attachSel(); return;
+    result.innerHTML='<div class="alert alert-warn">No hay notas para <strong>'+esc(repEV)+'</strong>. Importa un CSV primero.</div>';
+    return;
   }
   const ceIds=[...new Set(gradsEV.map(function(n){return n.ceId;}))].sort();
   const alumnos=sortAlumnos(objArr(DB.alumnos));
@@ -1259,38 +1276,42 @@ function renderRepInstancia(){
     return Object.assign({},s,{_cells:cells});
   });
   const ev=DB.ev[repEV];
-  document.getElementById('rep-body').innerHTML =
-    selHTML +
-    (students.length===0?
-      '<div class="alert alert-warn">Sin alumnos con notas en esta instancia.</div>' :
-      '<div class="card"><div class="card-title">'+esc(ev?ev.nombre:repEV)+
-      ' - <span class="chip">'+students.length+' alumnos</span></div>'+
-      buildRepTable(students,ceIds)+'</div>');
-  attachSel();
+  result.innerHTML=students.length===0
+    ?'<div class="alert alert-warn">Sin alumnos con notas en esta instancia.</div>'
+    :'<div class="card"><div class="card-title">'+esc(ev?ev.nombre:repEV)+' - <span class="chip">'+students.length+' alumnos</span></div>'+buildRepTable(students,ceIds)+'</div>';
 }
 
 function renderRepRACE(){
   const notas=objArr(DB.notas);
-  if(!notas.length){document.getElementById('rep-body').innerHTML='<div class="alert alert-warn">Sin notas cargadas.</div>';return;}
+  if(!notas.length){
+    document.getElementById('rep-body').innerHTML='<div class="alert alert-warn">Sin notas cargadas. Importa un CSV primero.</div>';
+    return;
+  }
   const ceIds=[...new Set(notas.map(n=>n.ceId))].sort();
   const alumnos=sortAlumnos(objArr(DB.alumnos));
   const students=alumnos.filter(function(s){
-    return ceIds.some(function(ceId){var c=DB.ce[ceId];return c&&getBestNota(s.email,c.raId,ceId)!==null;});
+    return ceIds.some(function(ceId){
+      const c=DB.ce[ceId];
+      return c&&getBestNota(s.email,c.raId,ceId)!==null;
+    });
   }).map(function(s){
-    var cells=ceIds.map(function(ceId){
-      var c=DB.ce[ceId];if(!c) return '<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
-      var best=getBestNota(s.email,c.raId,ceId);
-      return best!==null?buildCell(best):'<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
+    const cells=ceIds.map(function(ceId){
+      const c=DB.ce[ceId];
+      if(!c) return '<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
+      const best=getBestNota(s.email,c.raId,ceId);
+      return best!==null?buildCell(best):'<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
     });
     return Object.assign({},s,{_cells:cells});
   });
   document.getElementById('rep-body').innerHTML=
     '<div class="card no-print flex gap items-c wrap mb">'+
-      '<span class="text-sm text-muted">Mejor nota por alumno y criterio.</span>'+
-      '<button class="btn btn-outline btn-sm ml-auto" id="btn-race-print">&#128424; Imprimir</button>'+
+      '<span class="text-sm text-muted">Mejor nota por alumno y criterio, todas las instancias.</span>'+
+      '<button class="btn btn-outline btn-sm ml-auto" id="btn-race-print">Imprimir</button>'+
     '</div>'+
-    '<div class="card"><div class="card-title">&#127942; Mejor Nota por Criterio</div>'+buildRepTable(students,ceIds)+'</div>';
-  var bp=document.getElementById('btn-race-print');
+    '<div class="card"><div class="card-title">Mejor Nota por Criterio - <span class="chip">'+students.length+' alumnos</span></div>'+
+    (students.length?buildRepTable(students,ceIds):'<div class="empty">Sin alumnos con notas.</div>')+
+    '</div>';
+  const bp=document.getElementById('btn-race-print');
   if(bp) bp.onclick=function(){window.print();};
 }
 
@@ -1299,17 +1320,17 @@ function renderRepNivel(){
   const allCeIds=[...new Set(notas.map(n=>n.ceId))].sort();
   const niveles=getNivelArr();
 
-  const nivelBtns=niveles.map(function(l){
-    return '<button class="niv-fbtn '+(repLevels.includes(l.code)?'on-'+l.code:'')+'" data-code="'+l.code+'">'+
-      esc(l.nombre)+' ('+l.desde+'–'+(l.hasta>=10?10:l.hasta)+')</button>';
-  }).join('');
-
-  let html=
-    '<div class="card no-print">'+
+  document.getElementById('rep-body').innerHTML=
+    '<div class="card no-print" id="rep-nivel-ctrl">'+
       '<div class="card-title">Filtrar por Nivel</div>'+
-      '<div class="niv-filters" id="niv-filters-wrap">'+nivelBtns+'</div>'+
+      '<div class="flex gap-sm wrap" id="niv-btns">'+
+        niveles.map(function(l){
+          return '<button class="niv-fbtn '+(repLevels.includes(l.code)?'on-'+l.code:'')+'" data-code="'+l.code+'">'+
+            esc(l.nombre)+' ('+l.desde+'-'+(l.hasta>=10?10:l.hasta)+')</button>';
+        }).join('')+
+      '</div>'+
       (repLevels.length?
-        '<div class="form-row" style="margin-top:.6rem">'+
+        '<div class="form-row" style="margin-top:.65rem">'+
           '<div class="form-group" style="max-width:360px">'+
             '<label>Condicion</label>'+
             '<select id="nivel-mode-sel">'+
@@ -1319,44 +1340,78 @@ function renderRepNivel(){
           '</div>'+
         '</div>'
       :'')+
-      '<button class="btn btn-outline btn-sm" id="btn-nivel-print" style="margin-top:.5rem">&#128424; Imprimir</button>'+
-    '</div>';
+      '<button class="btn btn-outline btn-sm" id="btn-nivel-print" style="margin-top:.5rem">Imprimir</button>'+
+    '</div>'+
+    '<div id="rep-nivel-result"></div>';
 
+  // Attach events
+  document.getElementById('niv-btns').addEventListener('click', function(e){
+    const btn=e.target.closest('.niv-fbtn');
+    if(!btn) return;
+    const code=btn.dataset.code;
+    if(repLevels.includes(code)) repLevels=repLevels.filter(function(l){return l!==code;});
+    else repLevels.push(code);
+    renderRepNivel();
+  });
+  const ms=document.getElementById('nivel-mode-sel');
+  if(ms) ms.addEventListener('change', function(){ repNivelMode=this.value; renderRepNivelResult(); });
+  const bp=document.getElementById('btn-nivel-print');
+  if(bp) bp.onclick=function(){window.print();};
+
+  renderRepNivelResult();
+}
+
+function renderRepNivelResult(){
+  const result=document.getElementById('rep-nivel-result');
+  if(!result) return;
+  const notas=objArr(DB.notas);
+  const allCeIds=[...new Set(notas.map(n=>n.ceId))].sort();
+  const niveles=getNivelArr();
   if(!repLevels.length){
-    document.getElementById('rep-body').innerHTML=html+'<div class="alert alert-info">Selecciona al menos un nivel.</div>';
-    attachNivelEvents();
+    result.innerHTML='<div class="alert alert-info">Selecciona al menos un nivel.</div>';
     return;
   }
   if(!notas.length){
-    document.getElementById('rep-body').innerHTML=html+'<div class="alert alert-warn">Sin notas cargadas.</div>';
-    attachNivelEvents();
+    result.innerHTML='<div class="alert alert-warn">Sin notas cargadas.</div>';
     return;
   }
-
-  const levelNames=repLevels.map(function(c){var l=niveles.find(function(x){return x.code===c;});return l?l.nombre:c;}).join(', ');
+  const levelNames=repLevels.map(function(c){
+    const l=niveles.find(function(x){return x.code===c;});
+    return l?l.nombre:c;
+  }).join(', ');
   const alumnos=sortAlumnos(objArr(DB.alumnos));
   const filtered=alumnos.filter(function(s){
-    var ceConNotas=allCeIds.filter(function(ceId){var c=DB.ce[ceId];return c&&getBestNota(s.email,c.raId,ceId)!==null;});
+    const ceConNotas=allCeIds.filter(function(ceId){
+      const c=DB.ce[ceId];
+      return c&&getBestNota(s.email,c.raId,ceId)!==null;
+    });
     if(!ceConNotas.length) return false;
-    if(repNivelMode==='any') return ceConNotas.some(function(ceId){var c=DB.ce[ceId];var best=getBestNota(s.email,c.raId,ceId);var nv=getNivel(best);return nv&&repLevels.includes(nv.code);});
-    return ceConNotas.every(function(ceId){var c=DB.ce[ceId];var best=getBestNota(s.email,c.raId,ceId);var nv=getNivel(best);return nv&&repLevels.includes(nv.code);});
+    if(repNivelMode==='any') return ceConNotas.some(function(ceId){
+      const c=DB.ce[ceId];
+      const best=getBestNota(s.email,c.raId,ceId);
+      const nv=getNivel(best);
+      return nv&&repLevels.includes(nv.code);
+    });
+    return ceConNotas.every(function(ceId){
+      const c=DB.ce[ceId];
+      const best=getBestNota(s.email,c.raId,ceId);
+      const nv=getNivel(best);
+      return nv&&repLevels.includes(nv.code);
+    });
   }).map(function(s){
-    var cells=allCeIds.map(function(ceId){
-      var c=DB.ce[ceId];if(!c) return '<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
-      var best=getBestNota(s.email,c.raId,ceId);
-      return best!==null?buildCell(best):'<td class="nota-cell"><span class="nota-pill nota-N">—</span></td>';
+    const cells=allCeIds.map(function(ceId){
+      const c=DB.ce[ceId];
+      if(!c) return '<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
+      const best=getBestNota(s.email,c.raId,ceId);
+      return best!==null?buildCell(best):'<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
     });
     return Object.assign({},s,{_cells:cells});
   });
-
-  html+=
+  result.innerHTML=
     '<div class="card">'+
       '<div class="card-title">Nivel: <strong>'+esc(levelNames)+'</strong> <span class="chip">'+filtered.length+' alumnos</span></div>'+
-      (filtered.length===0?'<div class="empty">Sin alumnos que cumplan la condicion</div>':buildRepTable(filtered,allCeIds))+
+      (filtered.length?buildRepTable(filtered,allCeIds):'<div class="empty">Sin alumnos que cumplan la condicion.</div>')+
     '</div>';
-
-  document.getElementById('rep-body').innerHTML=html;
-  attachNivelEvents();
 }
 
 function attachNivelEvents(){
