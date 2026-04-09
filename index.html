@@ -901,149 +901,123 @@ window.confirmImportLista = async function(){
 let impStep=1,impRA='',impCE='',impEV='',impPreview=[],impFile=null;
 
 function renderImportar(){
-  const ces=impRA?objArr(DB.ce).filter(c=>{
-    const raKey = c.raId||'';
-    // Match by encoded key, original id, or direct comparison
-    return raKey===impRA || raKey===impRA.replace(/_/g,'.') || 
-           (DB.ra[impRA] && (raKey===(DB.ra[impRA].id||impRA)));
-  }):[];
-  const step1=impRA&&impCE&&impEV;
-  const gradesSummary=renderGradesSummary();
-  document.getElementById('panel-importar').innerHTML=`
-  <div class="sec-title">📥 Importar CSV de Evaluación</div>
-  <div class="steps">
-    <div class="step ${impStep>=1?'active':''}">1️⃣ RA / CE / EV</div>
-    <div class="step ${impStep>=2?'active':''}">2️⃣ Subir CSV</div>
-    <div class="step ${impStep>=3?'active':''}">3️⃣ Confirmar</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Paso 1 — Identificar la evaluación</div>
-    <div class="form-row">
-      <div class="form-group narrow">
-        <label>RA</label>
-        <select onchange="impRA=this.value;impCE='';impPreview=[];impStep=1;renderImportar()">
-          <option value="">— RA —</option>
-          ${objArr(DB.ra).map(r=>`<option value="${r._key}" ${impRA===r._key?'selected':''}>${r.id||r._key}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-group wide">
-        <label>Criterio de Evaluación</label>
-        <select onchange="impCE=this.value;impPreview=[];impStep=1;renderImportar()">
-          <option value="">— CE —</option>
-          ${ces.map(c=>`<option value="${c._key}" ${impCE===c._key?'selected':''}>${c.id||c._key} — ${esc(String(c.nombre||'').substring(0,50))}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Instancia</label>
-        <select onchange="impEV=this.value;impPreview=[];impStep=1;renderImportar()">
-          <option value="">— EV —</option>
-          ${objArr(DB.ev).map(e=>`<option value="${e._key}" ${impEV===e._key?'selected':''}>${e._key}${e.nombre?' — '+esc(e.nombre):''}</option>`).join('')}
-        </select>
-      </div>
-    </div>
-    ${step1?`<div class="alert alert-info">✅ <strong>${impRA} → ${impCE} → ${impEV}</strong></div>`:''}
-  </div>
-  ${step1?`<div class="card">
-    <div class="card-title">Paso 2 — Archivo CSV</div>
-    <div class="file-drop" id="fdrop" onclick="document.getElementById('csv-inp').click()"
-         ondragover="event.preventDefault();this.classList.add('over')"
-         ondragleave="this.classList.remove('over')" ondrop="handleDrop(event)">
-      <div style="font-size:1.5rem">${impFile?'✅':'📂'}</div>
-      <div style="font-weight:600;margin:.25rem 0">${impFile?esc(impFile.name):'Click o arrastrar CSV aquí'}</div>
-      <div class="text-sm text-muted">Formato Moodle / Google Classroom</div>
-    </div>
-    <input type="file" id="csv-inp" accept=".csv" onchange="handleFileSelect(event)">
-    ${impFile&&!impPreview.length?`<div style="margin-top:.65rem">
-      <button class="btn btn-primary" id="btn-proc" onclick="parseCSV()">🔍 Procesar CSV</button>
-      <span id="proc-ind" style="display:none;margin-left:.65rem;font-size:.8rem;color:var(--navy2)">⏳ Procesando...</span>
-    </div>`:''}
-  </div>`:''}
-  ${impPreview.length?`<div class="card">
-    <div class="card-title">Paso 3 — Revisar
-      <span class="chip chip-ok">${impPreview.filter(r=>r.st==='ok').length} encontrados</span>
-      ${impPreview.filter(r=>r.st==='new').length?`<span class="chip chip-warn">⚠️ ${impPreview.filter(r=>r.st==='new').length} nuevos</span>`:''}
-    </div>
-    <div class="tbl-wrap" style="max-height:360px;overflow-y:auto"><table>
-      <thead><tr><th>Alumno</th><th>Email</th><th class="center">CSV</th><th class="center">/10</th><th>Nivel</th><th>Estado</th></tr></thead>
-      <tbody>
-      ${impPreview.map(row=>{
-        const nv=getNivel(row.nota);
-        return `<tr>
-          <td>${esc(row.apellido)}, ${esc(row.nombre)}</td>
-          <td class="text-sm text-muted">${esc(row.email)}</td>
-          <td class="center">${row.rawNota}</td>
-          <td class="nota-cell"><span class="nota-pill ${nv?'nota-'+nv.code:'nota-N'}">${notaFmtStr(row.nota)}</span></td>
-          <td>${nv?`<span class="niv niv-${nv.code}">${esc(nv.nombre)}</span>`:'—'}</td>
-          <td>${row.st==='ok'?'<span class="niv niv-V">✅ Encontrado</span>':row.st==='new'?'<span class="niv niv-B">⚠️ Nuevo</span>':'<span class="niv niv-A">🔄 Actualiza</span>'}</td>
-        </tr>`;
-      }).join('')}
-      </tbody>
-    </table></div>
-    <div class="btn-group" style="margin-top:.85rem">
-      <button class="btn btn-ok" onclick="confirmImport()">✅ Confirmar (${impPreview.length})</button>
-      <button class="btn btn-outline" onclick="impPreview=[];impFile=null;impStep=2;renderImportar()">↩️ Cancelar</button>
-    </div>
-  </div>`:''}
-  <div class="card" style="margin-top:1.1rem">
-    <div class="card-title">📊 Notas cargadas</div>
-    ${gradesSummary}
-  </div>`;
-}
+  const raArr = objArr(DB.ra).sort((a,b)=>a._key.localeCompare(b._key));
+  const ceArr = impRA ? objArr(DB.ce).filter(c=>{
+    const rid = String(c.raId||'');
+    const ra  = DB.ra[impRA];
+    return rid===impRA || rid===(ra&&ra.id||impRA) || rid===impRA.replace(/_/g,'.');
+  }) : [];
+  const evArr = objArr(DB.ev).sort((a,b)=>a._key.localeCompare(b._key));
+  const step1 = impRA && impCE && impEV;
 
-window.handleDrop=function(e){e.preventDefault();document.getElementById('fdrop').classList.remove('over');const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.csv')){impFile=f;impStep=2;renderImportar();}};
-window.handleFileSelect=function(e){const f=e.target.files[0];if(f){impFile=f;impStep=2;renderImportar();}};
+  document.getElementById('panel-importar').innerHTML =
+    '<div class="sec-title">&#128229; Importar CSV de Evaluacion</div>'+
+    '<div class="steps">'+
+      '<div class="step '+(impStep>=1?'active':'')+'">1 RA / CE / EV</div>'+
+      '<div class="step '+(impStep>=2?'active':'')+'">2 Subir CSV</div>'+
+      '<div class="step '+(impStep>=3?'active':'')+'">3 Confirmar</div>'+
+    '</div>'+
+    '<div class="card">'+
+      '<div class="card-title">Paso 1 — Identificar la evaluacion</div>'+
+      '<div class="form-row">'+
+        '<div class="form-group narrow">'+
+          '<label>RA</label>'+
+          '<select id="imp-ra-sel">'+
+            '<option value="">— RA —</option>'+
+            raArr.map(r=>'<option value="'+r._key+'" '+(impRA===r._key?'selected':'')+'>'+(r.id||r._key)+'</option>').join('')+
+          '</select>'+
+        '</div>'+
+        '<div class="form-group wide">'+
+          '<label>Criterio de Evaluacion</label>'+
+          '<select id="imp-ce-sel">'+
+            '<option value="">— CE —</option>'+
+            ceArr.map(c=>'<option value="'+c._key+'" '+(impCE===c._key?'selected':'')+'>'+(c.id||c._key)+' — '+esc(String(c.nombre||'').substring(0,50))+'</option>').join('')+
+          '</select>'+
+        '</div>'+
+        '<div class="form-group">'+
+          '<label>Instancia</label>'+
+          '<select id="imp-ev-sel">'+
+            '<option value="">— EV —</option>'+
+            evArr.map(e=>'<option value="'+e._key+'" '+(impEV===e._key?'selected':'')+'>'+(e._key)+(e.nombre?' — '+esc(e.nombre):'')+'</option>').join('')+
+          '</select>'+
+        '</div>'+
+      '</div>'+
+      (step1?'<div class="alert alert-info">&#9989; <strong>'+impRA+' → '+impCE+' → '+impEV+'</strong></div>':'')+
+    '</div>'+
+    (step1?
+      '<div class="card">'+
+        '<div class="card-title">Paso 2 — Archivo CSV</div>'+
+        '<div class="file-drop" id="fdrop">'+
+          '<div style="font-size:1.5rem">'+(impFile?'✅':'📂')+'</div>'+
+          '<div style="font-weight:600;margin:.25rem 0">'+(impFile?esc(impFile.name):'Click o arrastrar CSV aqui')+'</div>'+
+          '<div class="text-sm text-muted">Formato Moodle / Google Classroom</div>'+
+        '</div>'+
+        '<input type="file" id="csv-inp" accept=".csv" style="display:none">'+
+        (impFile&&!impPreview.length?'<div style="margin-top:.65rem"><button class="btn btn-primary" id="btn-proc">&#128269; Procesar CSV</button></div>':'')+
+      '</div>'
+    :'')+
+    (impPreview.length?
+      '<div class="card">'+
+        '<div class="card-title">Paso 3 — Revisar '+
+          '<span class="chip chip-ok">'+impPreview.filter(r=>r.st==='ok').length+' encontrados</span>'+
+          (impPreview.filter(r=>r.st==='new').length?'<span class="chip chip-warn">&#9888; '+impPreview.filter(r=>r.st==='new').length+' nuevos</span>':'')+
+        '</div>'+
+        '<div class="tbl-wrap" style="max-height:360px;overflow-y:auto"><table>'+
+          '<thead><tr><th>Alumno</th><th>Email</th><th class="center">CSV</th><th class="center">/10</th><th>Nivel</th><th>Estado</th></tr></thead>'+
+          '<tbody>'+
+          impPreview.map(function(row){
+            var nv=getNivel(row.nota);
+            return '<tr>'+
+              '<td>'+esc(row.apellido)+', '+esc(row.nombre)+'</td>'+
+              '<td class="text-sm text-muted">'+esc(row.email)+'</td>'+
+              '<td class="center">'+row.rawNota+'</td>'+
+              '<td class="nota-cell"><span class="nota-pill '+(nv?'nota-'+nv.code:'nota-N')+'">'+notaFmtStr(row.nota)+'</span></td>'+
+              '<td>'+(nv?'<span class="niv niv-'+nv.code+'">'+esc(nv.nombre)+'</span>':'—')+'</td>'+
+              '<td>'+(row.st==='ok'?'<span class="niv niv-V">&#9989; Encontrado</span>':row.st==='new'?'<span class="niv niv-B">&#9888; Nuevo</span>':'<span class="niv niv-A">&#128260; Actualiza</span>')+'</td>'+
+            '</tr>';
+          }).join('')+
+          '</tbody></table></div>'+
+        '<div class="btn-group" style="margin-top:.85rem">'+
+          '<button class="btn btn-ok" id="btn-confirm-imp">&#9989; Confirmar ('+impPreview.length+')</button>'+
+          '<button class="btn btn-outline" id="btn-cancel-imp">&#8617; Cancelar</button>'+
+        '</div>'+
+      '</div>'
+    :'')+
+    '<div class="card" style="margin-top:1.1rem">'+
+      '<div class="card-title">&#128202; Notas cargadas</div>'+
+      renderGradesSummary()+
+    '</div>';
 
-function parseCSVLine(line){
-  const fields=[];let i=0;
-  while(i<=line.length){
-    if(i===line.length){fields.push('');break;}
-    if(line[i]==='"'){let field='';i++;while(i<line.length){if(line[i]==='"'&&line[i+1]==='"'){field+='"';i+=2;}else if(line[i]==='"'){i++;break;}else{field+=line[i++];}}fields.push(field);if(line[i]===',')i++;else break;}
-    else{let field='';while(i<line.length&&line[i]!==',')field+=line[i++];fields.push(field);if(line[i]===',')i++;else break;}
+  // Attach events AFTER rendering
+  document.getElementById('imp-ra-sel').addEventListener('change', function(){
+    impRA=this.value; impCE=''; impEV=''; impPreview=[]; impFile=null; impStep=1; renderImportar();
+  });
+  document.getElementById('imp-ce-sel').addEventListener('change', function(){
+    impCE=this.value; impPreview=[]; impStep=impCE?2:1; renderImportar();
+  });
+  document.getElementById('imp-ev-sel').addEventListener('change', function(){
+    impEV=this.value; impPreview=[]; impStep=impEV?2:1; renderImportar();
+  });
+
+  if(step1){
+    var fdrop=document.getElementById('fdrop');
+    if(fdrop){
+      fdrop.onclick=function(){ document.getElementById('csv-inp').click(); };
+      fdrop.ondragover=function(e){ e.preventDefault(); fdrop.classList.add('over'); };
+      fdrop.ondragleave=function(){ fdrop.classList.remove('over'); };
+      fdrop.ondrop=function(e){ e.preventDefault(); fdrop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f){impFile=f;impStep=2;renderImportar();} };
+    }
+    var csvInp=document.getElementById('csv-inp');
+    if(csvInp) csvInp.onchange=function(e){ var f=e.target.files[0]; if(f){impFile=f;impStep=2;renderImportar();} };
+    var btnProc=document.getElementById('btn-proc');
+    if(btnProc) btnProc.onclick=parseCSV;
   }
-  return fields;
+
+  var btnConf=document.getElementById('btn-confirm-imp');
+  if(btnConf) btnConf.onclick=confirmImport;
+  var btnCanc=document.getElementById('btn-cancel-imp');
+  if(btnCanc) btnCanc.onclick=function(){ impPreview=[];impFile=null;impStep=2;renderImportar(); };
 }
-
-window.parseCSV=function(){
-  if(!impFile) return;
-  const btn=document.getElementById('btn-proc');
-  const ind=document.getElementById('proc-ind');
-  if(btn){btn.disabled=true;btn.textContent='⏳ Procesando...';}
-  if(ind) ind.style.display='inline';
-  const reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      const lines=e.target.result.split(/\r?\n/).filter(l=>l.trim());
-      const fields=parseCSVLine(lines[0]);
-      const rows=[];
-      for(let i=1;i<lines.length;i++){
-        const vals=parseCSVLine(lines[i]);
-        if(!vals.some(v=>v.trim())) continue;
-        const obj={};fields.forEach((h,j)=>{obj[h]=vals[j]!==undefined?vals[j]:'';});
-        rows.push(obj);
-      }
-      const filtered=rows.filter(r=>{const ap=r['Apellido(s)']||r['Apellidos']||'';return ap.trim()&&ap.trim().toLowerCase()!=='promedio general';});
-      if(!filtered.length){toast('Sin filas de alumnos en el CSV','err');if(btn){btn.disabled=false;btn.textContent='🔍 Procesar CSV';}if(ind)ind.style.display='none';return;}
-      const gradeCol=fields.find(h=>/calificaci[oó]n\//i.test(h));
-      let maxNota=2;
-      if(gradeCol){const m=gradeCol.match(/\/(\d+[,.]\d*)/);if(m)maxNota=parseFloat(m[1].replace(',','.'))||2;}
-      impPreview=filtered.map(r=>{
-        const email=(r['Dirección de correo']||r['Email']||'').trim().toLowerCase();
-        const apellido=(r['Apellido(s)']||r['Apellidos']||'').trim();
-        const nombre=(r['Nombre']||'').trim();
-        const rawStr=gradeCol?(r[gradeCol]||'0'):'0';
-        const rawNota=parseFloat(rawStr.replace(',','.').replace(/[^\d.]/g,''))||0;
-        const nota=Math.round((rawNota/maxNota)*10*100)/100;
-        const alumnos=objArr(DB.alumnos);
-        const existing=alumnos.find(s=>String(s.email||'').toLowerCase()===email);
-        const dup=objArr(DB.notas).find(n=>String(n.email||'').toLowerCase()===email&&n.raId===impRA&&n.ceId===impCE&&n.evId===impEV);
-        return{email,apellido,nombre,rawNota,nota,st:!existing?'new':dup?'dup':'ok'};
-      });
-      impStep=3;renderImportar();
-    }catch(err){toast('Error: '+err.message,'err');if(btn){btn.disabled=false;btn.textContent='🔍 Procesar CSV';}if(ind)ind.style.display='none';}
-  };
-  reader.readAsText(impFile,'UTF-8');
-};
-
 window.confirmImport=async function(){
   // Agregar alumnos nuevos
   for(const row of impPreview.filter(r=>r.st==='new')){
