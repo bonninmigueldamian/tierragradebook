@@ -567,10 +567,18 @@ function tgbConfirm({ title='¿Confirmar?', msg='', okLabel='Aceptar', danger=fa
   });
 }
 
-function openModal(id, html) {
-  document.getElementById(id).innerHTML = `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal('${id}')">
-      <div class="modal">${html}</div></div>`;
+function openModal(id, content) {
+  const el = document.getElementById(id);
+  if (!el) { console.error('Modal container not found:', id); return; }
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-overlay';
+  wrap.addEventListener('click', function(e) { if(e.target===wrap) closeModal(id); });
+  const box = document.createElement('div');
+  box.className = 'modal';
+  box.innerHTML = content;
+  wrap.appendChild(box);
+  el.innerHTML = '';
+  el.appendChild(wrap);
 }
 function closeModal(id) {
   const el = document.getElementById(id);
@@ -1398,30 +1406,33 @@ window.saveConfig=async function(){
 };
 
 // ── RA ──
-window.openRAModal=function(key=null){
+window.openRAModal=function(key){
   const r=key?DB.ra[key]:null;
-  openModal('config-modal',`
-    <div class="modal-title">${r?'✏️ Editar RA':'+ Nuevo RA'}</div>
-    <div class="form-row">
-      <div class="form-group narrow"><label>ID (ej: RA01)</label>
-        <input type="text" id="ra-id" value="${r?esc(key):''}" ${r?'disabled':''}></div>
-      <div class="form-group narrow"><label>Peso (0–1)</label>
-        <input type="number" id="ra-peso" value="${r?r.peso:0.1}" step="0.05" min="0" max="1"></div>
-    </div>
-    <div class="form-group mb2"><label>Descripción</label>
-      <textarea id="ra-nom">${r?esc(r.nombre||''):''}</textarea></div>
-    <div class="btn-group">
-      <button class="btn btn-ok" onclick="saveRA('${key||''}')">💾 Guardar</button>
-      <button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>
-    </div>`);
+  const displayId = r ? (r.id||key) : '';
+  openModal('config-modal',
+    '<div class="modal-title">'+(r?'✏️ Editar RA':'+ Nuevo RA')+'</div>'+
+    '<div class="form-row">'+
+      '<div class="form-group narrow"><label>ID (ej: RA01)</label>'+
+        '<input type="text" id="ra-id" value="'+esc(displayId)+'" '+(r?'disabled':'')+'></div>'+
+      '<div class="form-group narrow"><label>Peso (0–1)</label>'+
+        '<input type="number" id="ra-peso" value="'+(r?r.peso:0.1)+'" step="0.05" min="0" max="1"></div>'+
+    '</div>'+
+    '<div class="form-group mb2"><label>Descripción</label>'+
+      '<textarea id="ra-nom">'+esc(r?r.nombre||'':'')+'</textarea></div>'+
+    '<div class="btn-group">'+
+      '<button class="btn btn-ok" onclick="saveRA(''+(key||'')+'')">💾 Guardar</button>'+
+      '<button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>'+
+    '</div>'
+  );
 };
 window.saveRA=async function(key){
-  const id=(key||document.getElementById('ra-id').value.trim().toUpperCase());
+  const rawId=(key||document.getElementById('ra-id').value.trim().toUpperCase());
   const nom=document.getElementById('ra-nom').value.trim();
   const peso=parseFloat(document.getElementById('ra-peso').value)||0;
-  if(!id||!nom){toast('ID y descripción obligatorios','err');return;}
-  const data={nombre:nom,peso};
-  await dbSet(`ra/${id}`,data);
+  if(!rawId||!nom){toast('ID y descripción obligatorios','err');return;}
+  const id=rawId.replace(/\./g,'_');
+  const data={nombre:nom,peso,id:rawId};
+  await dbSet('ra/'+id,data);
   DB.ra[id]=data;
   closeModal('config-modal');toast('✅ RA guardado');renderConfig();
 };
@@ -1437,36 +1448,44 @@ window.delRA=async function(key){
 };
 
 // ── CE ──
-window.openCEModal=function(key=null){
+window.openCEModal=function(key){
   const c=key?DB.ce[key]:null;
   const raArr=objArr(DB.ra).sort((a,b)=>a._key.localeCompare(b._key));
-  openModal('config-modal',`
-    <div class="modal-title">${c?'✏️ Editar CE':'+ Nuevo CE'}</div>
-    <div class="form-row">
-      <div class="form-group narrow"><label>ID (ej: C.E.01.01)</label>
-        <input type="text" id="ce-id" value="${c?esc(key):''}" ${c?'disabled':''}></div>
-      <div class="form-group narrow"><label>RA</label>
-        <select id="ce-ra">
-          ${raArr.map(r=>`<option value="${r._key}" ${c&&c.raId===r._key?'selected':''}>${r._key}</option>`).join('')}
-        </select></div>
-      <div class="form-group narrow"><label>Peso (0–1)</label>
-        <input type="number" id="ce-peso" value="${c?c.peso:0.2}" step="0.05" min="0" max="1"></div>
-    </div>
-    <div class="form-group mb2"><label>Descripción</label>
-      <textarea id="ce-nom">${c?esc(c.nombre||''):''}</textarea></div>
-    <div class="btn-group">
-      <button class="btn btn-ok" onclick="saveCE('${key||''}')">💾 Guardar</button>
-      <button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>
-    </div>`);
+  // Show original ID (with dots) if available, else encoded key
+  const displayId = c ? (c.id||key.replace(/_/g,'.')) : '';
+  const raOpts = raArr.map(r=>{
+    const displayRA = r.id||r._key;
+    const sel = c&&(c.raId===r._key||c.raId===r.id) ? 'selected' : '';
+    return '<option value="'+r._key+'" '+sel+'>'+esc(displayRA)+'</option>';
+  }).join('');
+  openModal('config-modal',
+    '<div class="modal-title">'+(c?'✏️ Editar CE':'+ Nuevo CE')+'</div>'+
+    '<div class="form-row">'+
+      '<div class="form-group narrow"><label>ID (ej: C.E.01.01)</label>'+
+        '<input type="text" id="ce-id" value="'+esc(displayId)+'" '+(c?'disabled':'')+'></div>'+
+      '<div class="form-group narrow"><label>RA</label>'+
+        '<select id="ce-ra">'+raOpts+'</select></div>'+
+      '<div class="form-group narrow"><label>Peso (0–1)</label>'+
+        '<input type="number" id="ce-peso" value="'+(c?c.peso:0.2)+'" step="0.05" min="0" max="1"></div>'+
+    '</div>'+
+    '<div class="form-group mb2"><label>Descripción</label>'+
+      '<textarea id="ce-nom">'+esc(c?c.nombre||'':'')+'</textarea></div>'+
+    '<div class="btn-group">'+
+      '<button class="btn btn-ok" onclick="saveCE(''+(key||'')+'')">💾 Guardar</button>'+
+      '<button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>'+
+    '</div>'
+  );
 };
 window.saveCE=async function(key){
-  const id=(key||document.getElementById('ce-id').value.trim());
+  const rawId=(key||document.getElementById('ce-id').value.trim());
   const raId=document.getElementById('ce-ra').value;
   const nom=document.getElementById('ce-nom').value.trim();
   const peso=parseFloat(document.getElementById('ce-peso').value)||0;
-  if(!id||!raId||!nom){toast('Todos los campos son obligatorios','err');return;}
-  const data={raId,nombre:nom,peso};
-  await dbSet(`ce/${id}`,data);
+  if(!rawId||!raId||!nom){toast('Todos los campos son obligatorios','err');return;}
+  // Firebase no permite . en claves — los reemplazamos por _
+  const id = rawId.replace(/\./g,'_');
+  const data={raId,nombre:nom,peso,id:rawId};
+  await dbSet('ce/'+id,data);
   DB.ce[id]=data;
   closeModal('config-modal');toast('✅ CE guardado');renderConfig();
 };
