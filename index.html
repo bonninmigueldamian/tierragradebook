@@ -780,7 +780,7 @@ window.saveAlumno = async function(key){
   const nom = document.getElementById('m-nom').value.trim().toUpperCase();
   const em  = document.getElementById('m-em').value.trim().toLowerCase();
   const leg = document.getElementById('m-leg').value.trim();
-  const año = parseInt(document.getElementById('m-año').value)||new Date().getFullYear();
+  const año = parseInt(document.getElementById('m-ano').value)||new Date().getFullYear();
   const grp = parseInt(document.getElementById('m-grp').value)||0;
   if(!ap||!nom||!em){toast('Apellido, nombre y email son obligatorios','err');return;}
   const data={apellido:ap,nombre:nom,email:em,legajo:leg,año,grupo:grp};
@@ -811,26 +811,30 @@ window.delAlumno = async function(key, nombre){
 };
 
 window.openImportListaModal = function(){
-  openModal('alumnos-modal',`
-    <div class="modal-title">📋 Importar lista de alumnos</div>
-    <div class="alert alert-warn">⚠️ Reemplaza la lista completa de alumnos.</div>
-    <div class="text-sm text-muted mb">Formato CSV: <code>legajo,apellido,nombre,email,año,grupo</code></div>
-    <div class="file-drop" id="lista-drop"
-         onclick="document.getElementById('lista-file-inp').click()"
-         ondragover="event.preventDefault();this.classList.add('over')"
-         ondragleave="this.classList.remove('over')"
-         ondrop="handleListaDrop(event)">
-      <div style="font-size:1.4rem" id="lista-drop-icon">📂</div>
-      <div style="font-weight:600;margin:.25rem 0" id="lista-drop-name">Click o arrastrar CSV aquí</div>
-      <div class="text-sm text-muted">Archivo .csv con la lista de alumnos</div>
-    </div>
-    <input type="file" id="lista-file-inp" accept=".csv" onchange="handleListaFile(event)">
-    <div class="text-sm text-muted" style="margin:.6rem 0 .3rem">O pegá el contenido directamente:</div>
-    <textarea id="import-txt" style="min-height:80px;font-family:monospace;font-size:.76rem" placeholder="14123456,GARCIA,JUAN,juan@gmail.com,2026,1"></textarea>
-    <div class="btn-group" style="margin-top:.75rem">
-      <button class="btn btn-ok" onclick="confirmImportLista()">✅ Importar</button>
-      <button class="btn btn-outline" onclick="closeModal('alumnos-modal')">Cancelar</button>
-    </div>`);
+  openModal('alumnos-modal',
+    '<div class="modal-title">Importar lista de alumnos</div>'+
+    '<div class="alert alert-warn">Reemplaza la lista completa de alumnos.</div>'+
+    '<div class="text-sm text-muted mb">Formato CSV: legajo,apellido,nombre,email,ano,grupo</div>'+
+    '<div class="file-drop" id="lista-drop">'+
+      '<div style="font-size:1.4rem" id="lista-drop-icon">&#128194;</div>'+
+      '<div style="font-weight:600;margin:.25rem 0" id="lista-drop-name">Click o arrastrar CSV aqui</div>'+
+      '<div class="text-sm text-muted">Archivo .csv con la lista de alumnos</div>'+
+    '</div>'+
+    '<input type="file" id="lista-file-inp" accept=".csv" style="display:none">'+
+    '<div class="text-sm text-muted" style="margin:.6rem 0 .3rem">O pega el contenido directamente:</div>'+
+    '<textarea id="import-txt" style="min-height:80px;font-family:monospace;font-size:.76rem" placeholder="14123456,GARCIA,JUAN,juan@gmail.com,2026,1"></textarea>'+
+    '<div class="btn-group" style="margin-top:.75rem">'+
+      '<button class="btn btn-ok" id="_btn-ok">Importar</button>'+
+      '<button class="btn btn-outline" id="_btn-cancel">Cancelar</button>'+
+    '</div>'
+  );
+  document.getElementById('lista-drop').onclick = function(){ document.getElementById('lista-file-inp').click(); };
+  document.getElementById('lista-drop').ondragover = function(e){ e.preventDefault(); this.classList.add('over'); };
+  document.getElementById('lista-drop').ondragleave = function(){ this.classList.remove('over'); };
+  document.getElementById('lista-drop').ondrop = function(e){ e.preventDefault(); this.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readListaFile(f); };
+  document.getElementById('lista-file-inp').onchange = function(e){ var f=e.target.files[0]; if(f) readListaFile(f); };
+  document.getElementById('_btn-ok').onclick = function(){ confirmImportLista(); };
+  document.getElementById('_btn-cancel').onclick = function(){ closeModal('alumnos-modal'); };
 };
 
 window.handleListaDrop = function(e) {
@@ -1501,6 +1505,66 @@ window.openEtqModal=function(key){
   );
   document.getElementById('_btn-ok').onclick=function(){saveEtq(key||null);};
   document.getElementById('_btn-cancel').onclick=function(){closeModal('config-modal');};
+};
+
+
+window.saveRA=async function(key){
+  const rawId=(key||document.getElementById('ra-id').value.trim().toUpperCase());
+  const nom=document.getElementById('ra-nom').value.trim();
+  const peso=parseFloat(document.getElementById('ra-peso').value)||0;
+  if(!rawId||!nom){toast('ID y descripcion obligatorios','err');return;}
+  const id=rawId.replace(/\./g,'_');
+  const data={nombre:nom,peso,id:rawId};
+  await dbSet('ra/'+id,data);
+  DB.ra[id]=data;
+  closeModal('config-modal');toast('RA guardado');renderConfig();
+};
+window.delRA=async function(key){
+  const ok=await tgbConfirm({title:'Eliminar RA',msg:'Eliminar '+key+'? Se eliminan sus CEs y notas.',okLabel:'Eliminar',danger:true});
+  if(!ok) return;
+  const cesDel=Object.keys(DB.ce||{}).filter(k=>DB.ce[k].raId===key);
+  for(const ck of cesDel){await dbRemove('ce/'+ck);delete DB.ce[ck];}
+  const notasDel=Object.keys(DB.notas||{}).filter(k=>DB.notas[k].raId===key);
+  for(const nk of notasDel){await dbRemove('notas/'+nk);delete DB.notas[nk];}
+  await dbRemove('ra/'+key);delete DB.ra[key];
+  toast('RA eliminado');renderConfig();
+};
+window.saveCE=async function(key){
+  const rawId=(key||document.getElementById('ce-id').value.trim());
+  const raId=document.getElementById('ce-ra').value;
+  const nom=document.getElementById('ce-nom').value.trim();
+  const peso=parseFloat(document.getElementById('ce-peso').value)||0;
+  if(!rawId||!raId||!nom){toast('Todos los campos son obligatorios','err');return;}
+  const id=rawId.replace(/\./g,'_');
+  const data={raId,nombre:nom,peso,id:rawId};
+  await dbSet('ce/'+id,data);
+  DB.ce[id]=data;
+  closeModal('config-modal');toast('CE guardado');renderConfig();
+};
+window.delCE=async function(key){
+  const ok=await tgbConfirm({title:'Eliminar CE',msg:'Eliminar '+key+'?',okLabel:'Eliminar',danger:true});
+  if(!ok) return;
+  const notasDel=Object.keys(DB.notas||{}).filter(k=>DB.notas[k].ceId===key);
+  for(const nk of notasDel){await dbRemove('notas/'+nk);delete DB.notas[nk];}
+  await dbRemove('ce/'+key);delete DB.ce[key];
+  toast('CE eliminado');renderConfig();
+};
+window.saveEV=async function(key){
+  const id=(key||document.getElementById('ev-id').value.trim().toUpperCase());
+  const nom=document.getElementById('ev-nom').value.trim();
+  if(!id||!nom){toast('Codigo y nombre obligatorios','err');return;}
+  const data={nombre:nom};
+  await dbSet('ev/'+id,data);
+  DB.ev[id]=data;
+  closeModal('config-modal');toast('Instancia guardada');renderConfig();
+};
+window.delEV=async function(key){
+  const ok=await tgbConfirm({title:'Eliminar instancia',msg:'Eliminar '+key+'?',okLabel:'Eliminar',danger:true});
+  if(!ok) return;
+  const notasDel=Object.keys(DB.notas||{}).filter(k=>DB.notas[k].evId===key);
+  for(const nk of notasDel){await dbRemove('notas/'+nk);delete DB.notas[nk];}
+  await dbRemove('ev/'+key);delete DB.ev[key];
+  toast('Instancia eliminada');renderConfig();
 };
 
 window.saveEtq=async function(key){
