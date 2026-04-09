@@ -656,27 +656,8 @@ function renderCfgPanel() {
   }).join('');
   return `<div class="rep-cfg no-print"><div class="rep-cfg-title">⚙️ Mostrar en cada celda</div>${rows}</div>`;
 }
-window.toggleCellNota = function(code){
-  loadCellMode();
-  if(!repCellMode[code]) repCellMode[code]={nota:true,types:[]};
-  repCellMode[code].nota = repCellMode[code].nota===false;
-  saveCellMode(); refreshRep();
-};
-window.toggleCellTipo = function(code,tipo){
-  loadCellMode();
-  if(!repCellMode[code]) repCellMode[code]={nota:true,types:[]};
-  if(!repCellMode[code].types) repCellMode[code].types=[];
-  const idx=repCellMode[code].types.indexOf(tipo);
-  if(idx>=0) repCellMode[code].types.splice(idx,1); else repCellMode[code].types.push(tipo);
-  saveCellMode(); refreshRep();
-};
-function refreshRep(){
-  const ep=document.getElementById('rep-cfg-panel');
-  if(ep) ep.innerHTML=renderCfgPanel();
-  if(repType==='instancia') renderRepInstancia();
-  else if(repType==='race') renderRepRACE();
-  else renderRepNivel();
-}
+
+
 
 // ═══════════════════════════════════════════════════════════
 //  TAB: ALUMNOS
@@ -1214,189 +1195,196 @@ function renderReportes(){
 function renderRepInstancia(){
   const notas = objArr(DB.notas);
   const evIds = [...new Set(notas.map(n=>String(n.evId||'').trim()))].sort();
+  const evOpts = '<option value="">- Seleccionar instancia -</option>'+
+    evIds.map(function(e){
+      const ev=DB.ev[e];
+      return '<option value="'+e+'" '+(repEV===e?'selected':'')+'>'+e+(ev?' - '+esc(ev.nombre):'')+'</option>';
+    }).join('');
 
-  // Render selector card separately so it persists
-  const selCard = document.getElementById('rep-inst-sel-card');
-  if(!selCard){
-    // First render - create the selector
-    const evOpts = '<option value="">- Seleccionar -</option>'+
-      evIds.map(function(e){
-        const ev=DB.ev[e];
-        return '<option value="'+e+'" '+(repEV===e?'selected':'')+'>'+e+(ev?' - '+esc(ev.nombre):'')+'</option>';
-      }).join('');
-    document.getElementById('rep-body').innerHTML =
-      '<div class="card no-print" id="rep-inst-sel-card">'+
+  document.getElementById('rep-body').innerHTML =
+    '<div class="card no-print">'+
+      '<div class="form-row items-c">'+
         '<div class="form-group" style="max-width:420px">'+
           '<label>Instancia de Evaluacion</label>'+
           '<select id="rep-ev-sel">'+evOpts+'</select>'+
         '</div>'+
-        '<button class="btn btn-outline btn-sm" id="btn-rep-print" style="margin-top:.5rem;display:none">Imprimir</button>'+
+        '<div style="align-self:flex-end">'+
+          '<button class="btn btn-primary" id="btn-gen-inst">Generar reporte</button>'+
+        '</div>'+
       '</div>'+
-      '<div id="rep-inst-result"></div>';
-    document.getElementById('rep-ev-sel').addEventListener('change', function(){
-      repEV=this.value;
-      document.getElementById('btn-rep-print').style.display=repEV?'':'none';
-      renderInstResult();
-    });
-    document.getElementById('btn-rep-print').onclick=function(){ window.print(); };
-  } else {
-    // Selector already exists - just update dropdown options if needed
-    const sel=document.getElementById('rep-ev-sel');
-    if(sel && sel.value !== repEV) sel.value = repEV;
-  }
-  renderInstResult();
+    '</div>'+
+    '<div id="rep-inst-result">'+
+      '<div class="alert alert-info">Selecciona una instancia y hace click en Generar.</div>'+
+    '</div>';
+
+  document.getElementById('rep-ev-sel').addEventListener('change', function(){ repEV=this.value; });
+  document.getElementById('btn-gen-inst').addEventListener('click', function(){
+    repEV = document.getElementById('rep-ev-sel').value;
+    genInstResult();
+  });
 }
 
-function renderInstResult(){
-  const result=document.getElementById('rep-inst-result');
+function genInstResult(){
+  const result = document.getElementById('rep-inst-result');
   if(!result) return;
   if(!repEV){
-    result.innerHTML='<div class="alert alert-info">Selecciona una instancia para ver el reporte.</div>';
+    result.innerHTML = '<div class="alert alert-warn">Selecciona una instancia primero.</div>';
     return;
   }
-  const notas=objArr(DB.notas);
-  const gradsEV=notas.filter(function(n){ return String(n.evId||'').trim()===repEV; });
+  const notas = objArr(DB.notas);
+  const gradsEV = notas.filter(function(n){ return String(n.evId||'').trim()===repEV; });
   if(!gradsEV.length){
-    result.innerHTML='<div class="alert alert-warn">No hay notas para <strong>'+esc(repEV)+'</strong>. Importa un CSV primero.</div>';
+    result.innerHTML = '<div class="alert alert-warn">No hay notas para <strong>'+esc(repEV)+'</strong>. Importa un CSV primero.</div>';
     return;
   }
-  const ceIds=[...new Set(gradsEV.map(function(n){return n.ceId;}))].sort();
-  const alumnos=sortAlumnos(objArr(DB.alumnos));
-  const students=alumnos.filter(function(s){
+  const ceIds = [...new Set(gradsEV.map(function(n){return n.ceId;}))].sort();
+  const alumnos = sortAlumnos(objArr(DB.alumnos));
+  const students = alumnos.filter(function(s){
     return gradsEV.some(function(n){
       return String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase();
     });
   }).map(function(s){
-    const cells=ceIds.map(function(ceId){
-      const n=gradsEV.find(function(x){
+    const cells = ceIds.map(function(ceId){
+      const n = gradsEV.find(function(x){
         return String(x.email||'').toLowerCase()===String(s.email||'').toLowerCase()&&x.ceId===ceId;
       });
-      return n?buildCell(n.nota):'<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
+      return n ? buildCell(n.nota) : '<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
     });
     return Object.assign({},s,{_cells:cells});
   });
-  const ev=DB.ev[repEV];
-  result.innerHTML=students.length===0
-    ?'<div class="alert alert-warn">Sin alumnos con notas en esta instancia.</div>'
-    :'<div class="card"><div class="card-title">'+esc(ev?ev.nombre:repEV)+' - <span class="chip">'+students.length+' alumnos</span></div>'+buildRepTable(students,ceIds)+'</div>';
+  const ev = DB.ev[repEV];
+  result.innerHTML =
+    '<div class="card no-print flex gap items-c" style="margin-bottom:.5rem">'+
+      '<span class="text-sm text-muted">'+students.length+' alumnos</span>'+
+      '<button class="btn btn-outline btn-sm ml-auto" onclick="window.print()">Imprimir</button>'+
+    '</div>'+
+    '<div class="card"><div class="card-title">'+esc(ev?ev.nombre:repEV)+'</div>'+
+    (students.length ? buildRepTable(students,ceIds) : '<div class="empty">Sin alumnos con notas en esta instancia.</div>')+
+    '</div>';
 }
 
 function renderRepRACE(){
-  const notas=objArr(DB.notas);
+  document.getElementById('rep-body').innerHTML =
+    '<div class="card no-print">'+
+      '<div class="form-row items-c">'+
+        '<span class="text-sm text-muted">Muestra la mejor nota de cada alumno por criterio, considerando todas las instancias.</span>'+
+        '<button class="btn btn-primary ml-auto" id="btn-gen-race">Generar reporte</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="rep-race-result">'+
+      '<div class="alert alert-info">Hace click en Generar para ver el reporte.</div>'+
+    '</div>';
+  document.getElementById('btn-gen-race').addEventListener('click', genRaceResult);
+}
+
+function genRaceResult(){
+  const result = document.getElementById('rep-race-result');
+  if(!result) return;
+  const notas = objArr(DB.notas);
   if(!notas.length){
-    document.getElementById('rep-body').innerHTML='<div class="alert alert-warn">Sin notas cargadas. Importa un CSV primero.</div>';
+    result.innerHTML = '<div class="alert alert-warn">Sin notas cargadas. Importa un CSV primero.</div>';
     return;
   }
-  const ceIds=[...new Set(notas.map(n=>n.ceId))].sort();
-  const alumnos=sortAlumnos(objArr(DB.alumnos));
-  const students=alumnos.filter(function(s){
+  const ceIds = [...new Set(notas.map(n=>n.ceId))].sort();
+  const alumnos = sortAlumnos(objArr(DB.alumnos));
+  const students = alumnos.filter(function(s){
     return ceIds.some(function(ceId){
-      const c=DB.ce[ceId];
-      return c&&getBestNota(s.email,c.raId,ceId)!==null;
+      const c=DB.ce[ceId]; return c&&getBestNota(s.email,c.raId,ceId)!==null;
     });
   }).map(function(s){
-    const cells=ceIds.map(function(ceId){
+    const cells = ceIds.map(function(ceId){
       const c=DB.ce[ceId];
       if(!c) return '<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
       const best=getBestNota(s.email,c.raId,ceId);
-      return best!==null?buildCell(best):'<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
+      return best!==null ? buildCell(best) : '<td class="nota-cell"><span class="nota-pill nota-N">-</span></td>';
     });
     return Object.assign({},s,{_cells:cells});
   });
-  document.getElementById('rep-body').innerHTML=
-    '<div class="card no-print flex gap items-c wrap mb">'+
-      '<span class="text-sm text-muted">Mejor nota por alumno y criterio, todas las instancias.</span>'+
-      '<button class="btn btn-outline btn-sm ml-auto" id="btn-race-print">Imprimir</button>'+
+  result.innerHTML =
+    '<div class="card no-print flex gap items-c" style="margin-bottom:.5rem">'+
+      '<span class="text-sm text-muted">'+students.length+' alumnos</span>'+
+      '<button class="btn btn-outline btn-sm ml-auto" onclick="window.print()">Imprimir</button>'+
     '</div>'+
-    '<div class="card"><div class="card-title">Mejor Nota por Criterio - <span class="chip">'+students.length+' alumnos</span></div>'+
-    (students.length?buildRepTable(students,ceIds):'<div class="empty">Sin alumnos con notas.</div>')+
+    '<div class="card"><div class="card-title">Mejor Nota por Criterio</div>'+
+    (students.length ? buildRepTable(students,ceIds) : '<div class="empty">Sin alumnos con notas.</div>')+
     '</div>';
-  const bp=document.getElementById('btn-race-print');
-  if(bp) bp.onclick=function(){window.print();};
 }
 
 function renderRepNivel(){
-  const notas=objArr(DB.notas);
-  const allCeIds=[...new Set(notas.map(n=>n.ceId))].sort();
-  const niveles=getNivelArr();
+  const niveles = getNivelArr();
+  const nivelBtns = niveles.map(function(l){
+    return '<button class="niv-fbtn '+(repLevels.includes(l.code)?'on-'+l.code:'')+'" data-code="'+l.code+'">'+
+      esc(l.nombre)+' ('+l.desde+'-'+(l.hasta>=10?10:l.hasta)+')</button>';
+  }).join('');
 
-  document.getElementById('rep-body').innerHTML=
-    '<div class="card no-print" id="rep-nivel-ctrl">'+
+  document.getElementById('rep-body').innerHTML =
+    '<div class="card no-print">'+
       '<div class="card-title">Filtrar por Nivel</div>'+
-      '<div class="flex gap-sm wrap" id="niv-btns">'+
-        niveles.map(function(l){
-          return '<button class="niv-fbtn '+(repLevels.includes(l.code)?'on-'+l.code:'')+'" data-code="'+l.code+'">'+
-            esc(l.nombre)+' ('+l.desde+'-'+(l.hasta>=10?10:l.hasta)+')</button>';
-        }).join('')+
+      '<div class="flex gap-sm wrap" id="niv-btns" style="margin-bottom:.75rem">'+nivelBtns+'</div>'+
+      '<div class="form-row items-c">'+
+        '<div class="form-group" style="max-width:360px">'+
+          '<label>Condicion</label>'+
+          '<select id="nivel-mode-sel">'+
+            '<option value="any" '+(repNivelMode==='any'?'selected':'')+'>Al menos una nota en los niveles seleccionados</option>'+
+            '<option value="all" '+(repNivelMode==='all'?'selected':'')+'>Todas las notas en los niveles seleccionados</option>'+
+          '</select>'+
+        '</div>'+
+        '<div style="align-self:flex-end">'+
+          '<button class="btn btn-primary" id="btn-gen-nivel">Generar reporte</button>'+
+        '</div>'+
       '</div>'+
-      (repLevels.length?
-        '<div class="form-row" style="margin-top:.65rem">'+
-          '<div class="form-group" style="max-width:360px">'+
-            '<label>Condicion</label>'+
-            '<select id="nivel-mode-sel">'+
-              '<option value="any" '+(repNivelMode==='any'?'selected':'')+'>Al menos una nota en los niveles</option>'+
-              '<option value="all" '+(repNivelMode==='all'?'selected':'')+'>Todas las notas en los niveles</option>'+
-            '</select>'+
-          '</div>'+
-        '</div>'
-      :'')+
-      '<button class="btn btn-outline btn-sm" id="btn-nivel-print" style="margin-top:.5rem">Imprimir</button>'+
     '</div>'+
-    '<div id="rep-nivel-result"></div>';
+    '<div id="rep-nivel-result">'+
+      '<div class="alert alert-info">Selecciona uno o mas niveles y hace click en Generar.</div>'+
+    '</div>';
 
-  // Attach events
   document.getElementById('niv-btns').addEventListener('click', function(e){
     const btn=e.target.closest('.niv-fbtn');
     if(!btn) return;
     const code=btn.dataset.code;
     if(repLevels.includes(code)) repLevels=repLevels.filter(function(l){return l!==code;});
     else repLevels.push(code);
-    renderRepNivel();
+    // Update button styles
+    document.querySelectorAll('#niv-btns .niv-fbtn').forEach(function(b){
+      const c=b.dataset.code;
+      b.className='niv-fbtn '+(repLevels.includes(c)?'on-'+c:'');
+    });
   });
-  const ms=document.getElementById('nivel-mode-sel');
-  if(ms) ms.addEventListener('change', function(){ repNivelMode=this.value; renderRepNivelResult(); });
-  const bp=document.getElementById('btn-nivel-print');
-  if(bp) bp.onclick=function(){window.print();};
-
-  renderRepNivelResult();
+  document.getElementById('nivel-mode-sel').addEventListener('change', function(){ repNivelMode=this.value; });
+  document.getElementById('btn-gen-nivel').addEventListener('click', genNivelResult);
 }
 
-function renderRepNivelResult(){
-  const result=document.getElementById('rep-nivel-result');
+function genNivelResult(){
+  const result = document.getElementById('rep-nivel-result');
   if(!result) return;
-  const notas=objArr(DB.notas);
-  const allCeIds=[...new Set(notas.map(n=>n.ceId))].sort();
-  const niveles=getNivelArr();
+  repNivelMode = document.getElementById('nivel-mode-sel').value;
   if(!repLevels.length){
-    result.innerHTML='<div class="alert alert-info">Selecciona al menos un nivel.</div>';
+    result.innerHTML = '<div class="alert alert-warn">Selecciona al menos un nivel.</div>';
     return;
   }
+  const notas = objArr(DB.notas);
   if(!notas.length){
-    result.innerHTML='<div class="alert alert-warn">Sin notas cargadas.</div>';
+    result.innerHTML = '<div class="alert alert-warn">Sin notas cargadas. Importa un CSV primero.</div>';
     return;
   }
-  const levelNames=repLevels.map(function(c){
-    const l=niveles.find(function(x){return x.code===c;});
-    return l?l.nombre:c;
+  const niveles = getNivelArr();
+  const allCeIds = [...new Set(notas.map(n=>n.ceId))].sort();
+  const levelNames = repLevels.map(function(c){
+    const l=niveles.find(function(x){return x.code===c;}); return l?l.nombre:c;
   }).join(', ');
-  const alumnos=sortAlumnos(objArr(DB.alumnos));
-  const filtered=alumnos.filter(function(s){
-    const ceConNotas=allCeIds.filter(function(ceId){
-      const c=DB.ce[ceId];
-      return c&&getBestNota(s.email,c.raId,ceId)!==null;
+  const alumnos = sortAlumnos(objArr(DB.alumnos));
+  const filtered = alumnos.filter(function(s){
+    const ceConNotas = allCeIds.filter(function(ceId){
+      const c=DB.ce[ceId]; return c&&getBestNota(s.email,c.raId,ceId)!==null;
     });
     if(!ceConNotas.length) return false;
     if(repNivelMode==='any') return ceConNotas.some(function(ceId){
-      const c=DB.ce[ceId];
-      const best=getBestNota(s.email,c.raId,ceId);
-      const nv=getNivel(best);
-      return nv&&repLevels.includes(nv.code);
+      const c=DB.ce[ceId]; const best=getBestNota(s.email,c.raId,ceId);
+      const nv=getNivel(best); return nv&&repLevels.includes(nv.code);
     });
     return ceConNotas.every(function(ceId){
-      const c=DB.ce[ceId];
-      const best=getBestNota(s.email,c.raId,ceId);
-      const nv=getNivel(best);
-      return nv&&repLevels.includes(nv.code);
+      const c=DB.ce[ceId]; const best=getBestNota(s.email,c.raId,ceId);
+      const nv=getNivel(best); return nv&&repLevels.includes(nv.code);
     });
   }).map(function(s){
     const cells=allCeIds.map(function(ceId){
@@ -1407,372 +1395,42 @@ function renderRepNivelResult(){
     });
     return Object.assign({},s,{_cells:cells});
   });
-  result.innerHTML=
-    '<div class="card">'+
-      '<div class="card-title">Nivel: <strong>'+esc(levelNames)+'</strong> <span class="chip">'+filtered.length+' alumnos</span></div>'+
-      (filtered.length?buildRepTable(filtered,allCeIds):'<div class="empty">Sin alumnos que cumplan la condicion.</div>')+
+  result.innerHTML =
+    '<div class="card no-print flex gap items-c" style="margin-bottom:.5rem">'+
+      '<span class="text-sm text-muted">'+filtered.length+' alumnos - Nivel: '+esc(levelNames)+'</span>'+
+      '<button class="btn btn-outline btn-sm ml-auto" onclick="window.print()">Imprimir</button>'+
+    '</div>'+
+    '<div class="card"><div class="card-title">Filtro por Nivel: <strong>'+esc(levelNames)+'</strong></div>'+
+    (filtered.length ? buildRepTable(filtered,allCeIds) : '<div class="empty">Sin alumnos que cumplan la condicion.</div>')+
     '</div>';
 }
 
-function attachNivelEvents(){
-  var wrap=document.getElementById('niv-filters-wrap');
-  if(wrap) wrap.querySelectorAll('.niv-fbtn').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var code=this.dataset.code;
-      if(repLevels.includes(code)) repLevels=repLevels.filter(function(l){return l!==code;});
-      else repLevels.push(code);
-      renderRepNivel();
-    });
-  });
-  var modeSel=document.getElementById('nivel-mode-sel');
-  if(modeSel) modeSel.addEventListener('change', function(){ repNivelMode=this.value; renderRepNivel(); });
-  var btnPrint=document.getElementById('btn-nivel-print');
-  if(btnPrint) btnPrint.onclick=function(){window.print();};
+window.toggleCellNota = function(code){
+  loadCellMode();
+  if(!repCellMode[code]) repCellMode[code]={nota:true,types:[]};
+  repCellMode[code].nota = repCellMode[code].nota===false;
+  saveCellMode(); refreshRep();
+};
+window.toggleCellTipo = function(code,tipo){
+  loadCellMode();
+  if(!repCellMode[code]) repCellMode[code]={nota:true,types:[]};
+  if(!repCellMode[code].types) repCellMode[code].types=[];
+  const idx=repCellMode[code].types.indexOf(tipo);
+  if(idx>=0) repCellMode[code].types.splice(idx,1); else repCellMode[code].types.push(tipo);
+  saveCellMode(); refreshRep();
+};
+function refreshRep(){
+  const ep=document.getElementById('rep-cfg-panel');
+  if(ep) ep.innerHTML=renderCfgPanel();
+  if(repType==='instancia') renderRepInstancia();
+  else if(repType==='race') renderRepRACE();
+  else renderRepNivel();
 }
 
-window.toggleNivLevel=function(code){
-  if(repLevels.includes(code)) repLevels=repLevels.filter(l=>l!==code); else repLevels.push(code);
-  renderRepNivel();
-};
-
 // ═══════════════════════════════════════════════════════════
-//  TAB: CONFIGURACIÓN
+//  TAB: ALUMNOS
 // ═══════════════════════════════════════════════════════════
-function renderConfig(){
-  const raArr=objArr(DB.ra).sort((a,b)=>a._key.localeCompare(b._key));
-  const ceArr=objArr(DB.ce).sort((a,b)=>a._key.localeCompare(b._key));
-  const evArr=objArr(DB.ev).sort((a,b)=>a._key.localeCompare(b._key));
-  const etqArr=objArr(DB.etiquetas);
-  const nivArr=getNivelArr();
-
-  const etqTipos=[...new Set(etqArr.map(e=>String(e.tipo||'').trim()))].filter(Boolean);
-  const etqRows=etqArr.map(e=>{
-    const nv=nivArr.find(n=>n.code===String(e.nivel_code||'').trim());
-    return `<tr>
-      <td><span class="chip chip-gold">${esc(e.tipo||'')}</span></td>
-      <td>${nv?`<span class="niv niv-${nv.code}">${esc(nv.nombre)}</span>`:esc(e.nivel_code||'')}</td>
-      <td>${esc(e.etiqueta||'')}</td>
-      <td class="center no-print"><div style="display:flex;gap:.25rem;justify-content:center">
-        <button class="btn btn-outline btn-xs" onclick='openEtqModal("${e._key}")'>✏️</button>
-        <button class="btn btn-danger btn-xs" onclick='delEtq("${e._key}")'>🗑</button>
-      </div></td></tr>`;
-  }).join('')||'<tr><td colspan="4"><div class="empty">Sin etiquetas</div></td></tr>';
-
-  const etqCard=`<div class="card">
-    <div class="card-title">🏷 Etiquetas por Nivel <span class="chip">${etqArr.length}</span>
-      <button class="btn btn-primary btn-sm ml-auto no-print" onclick="openEtqModal()">+ Agregar</button>
-    </div>
-    <div class="text-sm text-muted mb">Texto que aparece en las celdas de los reportes según el nivel.</div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Tipo</th><th>Nivel</th><th>Etiqueta</th><th class="center no-print">Acciones</th></tr></thead>
-      <tbody>${etqRows}</tbody>
-    </table></div>
-  </div>`;
-
-  document.getElementById('panel-config').innerHTML=`
-  <div class="sec-title">⚙️ Configuración</div>
-
-  <div class="card">
-    <div class="card-title">🏫 Materia</div>
-    <div class="form-row">
-      <div class="form-group" style="max-width:340px">
-        <label>Nombre</label>
-        <input type="text" id="cfg-mat" value="${esc(DB.config.materia||'')}" placeholder="Ej: ISI 2026">
-      </div>
-      <div class="form-group narrow">
-        <label>Año</label>
-        <input type="number" id="cfg-año" value="${DB.config.año||new Date().getFullYear()}">
-      </div>
-      <div style="align-self:flex-end">
-        <button class="btn btn-gold" onclick="saveConfig()">💾 Guardar</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📚 Resultados de Aprendizaje (RA) <span class="chip">${raArr.length}</span>
-      <button class="btn btn-primary btn-sm ml-auto no-print" onclick="openRAModal()">+ Agregar</button>
-    </div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>ID</th><th>Descripción</th><th class="center">Peso</th><th class="center">CEs</th><th class="center no-print">Acciones</th></tr></thead>
-      <tbody>
-      ${raArr.map(r=>{
-        const cnt=ceArr.filter(c=>c.raId===r._key).length;
-        return `<tr>
-          <td><span class="chip">${esc(r._key)}</span></td>
-          <td class="text-sm">${esc(r.nombre||'')}</td>
-          <td class="center">${((parseFloat(r.peso)||0)*100).toFixed(0)}%</td>
-          <td class="center">${cnt}</td>
-          <td class="center no-print"><div style="display:flex;gap:.25rem;justify-content:center">
-            <button class="btn btn-outline btn-xs" onclick='openRAModal("${r._key}")'>✏️</button>
-            <button class="btn btn-danger btn-xs" onclick='delRA("${r._key}")'>🗑</button>
-          </div></td></tr>`;
-      }).join('')||'<tr><td colspan="5"><div class="empty">Sin RAs</div></td></tr>'}
-      </tbody>
-    </table></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📝 Criterios de Evaluación (CE) <span class="chip">${ceArr.length}</span>
-      <button class="btn btn-primary btn-sm ml-auto no-print" onclick="openCEModal()">+ Agregar</button>
-    </div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>CE ID</th><th>RA</th><th>Descripción</th><th class="center">Peso</th><th class="center no-print">Acciones</th></tr></thead>
-      <tbody>
-      ${ceArr.map(c=>`<tr>
-        <td><span class="chip chip-gold">${esc(c._key)}</span></td>
-        <td><span class="chip">${esc(c.raId||'')}</span></td>
-        <td class="text-sm">${esc(c.nombre||'')}</td>
-        <td class="center">${((parseFloat(c.peso)||0)*100).toFixed(0)}%</td>
-        <td class="center no-print"><div style="display:flex;gap:.25rem;justify-content:center">
-          <button class="btn btn-outline btn-xs" onclick='openCEModal("${c._key}")'>✏️</button>
-          <button class="btn btn-danger btn-xs" onclick='delCE("${c._key}")'>🗑</button>
-        </div></td></tr>`
-      ).join('')||'<tr><td colspan="5"><div class="empty">Sin CEs</div></td></tr>'}
-      </tbody>
-    </table></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📅 Instancias de Evaluación <span class="chip">${evArr.length}</span>
-      <button class="btn btn-primary btn-sm ml-auto no-print" onclick="openEVModal()">+ Agregar</button>
-    </div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Código</th><th>Nombre</th><th class="center">Notas</th><th class="center no-print">Acciones</th></tr></thead>
-      <tbody>
-      ${evArr.map(e=>{
-        const cnt=objArr(DB.notas).filter(n=>n.evId===e._key).length;
-        return `<tr>
-          <td><span class="chip">${esc(e._key)}</span></td>
-          <td>${esc(e.nombre||'')}</td>
-          <td class="center"><span class="chip ${cnt>0?'chip-ok':''}">${cnt}</span></td>
-          <td class="center no-print"><div style="display:flex;gap:.25rem;justify-content:center">
-            <button class="btn btn-outline btn-xs" onclick='openEVModal("${e._key}")'>✏️</button>
-            <button class="btn btn-danger btn-xs" onclick='delEV("${e._key}")'>🗑</button>
-          </div></td></tr>`;
-      }).join('')||'<tr><td colspan="4"><div class="empty">Sin instancias</div></td></tr>'}
-      </tbody>
-    </table></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">🎯 Niveles de Desempeño</div>
-    <div class="flex gap wrap">
-    ${nivArr.map(l=>`<div style="padding:.65rem 1rem;border:1px solid var(--border);border-radius:8px;min-width:110px">
-      <span class="niv niv-${l.code}">${esc(l.nombre)}</span>
-      <div class="text-sm text-muted" style="margin-top:.25rem">${l.desde} – ${l.hasta>=10?10:l.hasta}</div>
-    </div>`).join('')}
-    </div>
-  </div>
-
-  ${etqCard}
-
-  <div class="card" style="border-color:var(--err)">
-    <div class="card-title" style="color:var(--err)">⚠️ Zona de Peligro</div>
-    <div class="btn-group">
-      <button class="btn btn-danger" onclick="delAllNotas()">🗑 Borrar TODAS las notas</button>
-    </div>
-  </div>
-
-  <div id="config-modal"></div>`;
-}
-
-window.saveConfig=async function(){
-  const mat=document.getElementById('cfg-mat').value.trim();
-  const año=parseInt(document.getElementById('cfg-año').value)||new Date().getFullYear();
-  DB.config={...DB.config,materia:mat,año};
-  await dbSet('config',DB.config);
-  document.getElementById('hdr-materia').textContent=mat;
-  toast('✅ Configuración guardada');
-};
-
-// ── RA ──
-
-window.openRAModal=function(key){
-  const r=key?DB.ra[key]:null;
-  const displayId=r?(r.id||key):'';
-  openModal('config-modal',
-    '<div class="modal-title">'+(r?'Editar RA':'+ Nuevo RA')+'</div>'+
-    '<div class="form-row">'+
-      '<div class="form-group narrow"><label>ID</label>'+
-        '<input type="text" id="ra-id" value="'+esc(displayId)+'" '+(r?'disabled':'')+'></div>'+
-      '<div class="form-group narrow"><label>Peso (0-1)</label>'+
-        '<input type="number" id="ra-peso" value="'+(r?r.peso:0.1)+'" step="0.05" min="0" max="1"></div>'+
-    '</div>'+
-    '<div class="form-group mb2"><label>Descripcion</label>'+
-      '<textarea id="ra-nom">'+esc(r?r.nombre||'':'')+'</textarea></div>'+
-    '<div class="btn-group">'+
-      '<button class="btn btn-ok" id="_btn-ok">Guardar</button>'+
-      '<button class="btn btn-outline" id="_btn-cancel">Cancelar</button>'+
-    '</div>'
-  );
-  document.getElementById('_btn-ok').onclick=function(){saveRA(key||null);};
-  document.getElementById('_btn-cancel').onclick=function(){closeModal('config-modal');};
-};
-
-window.openCEModal=function(key){
-  const c=key?DB.ce[key]:null;
-  const raArr=objArr(DB.ra).sort((a,b)=>a._key.localeCompare(b._key));
-  const displayId=c?(c.id||key.replace(/_/g,'.')):'';
-  const raOpts=raArr.map(r=>{
-    const sel=c&&(c.raId===r._key||c.raId===r.id)?'selected':'';
-    return '<option value="'+r._key+'" '+sel+'>'+(r.id||r._key)+'</option>';
-  }).join('');
-  openModal('config-modal',
-    '<div class="modal-title">'+(c?'Editar CE':'+ Nuevo CE')+'</div>'+
-    '<div class="form-row">'+
-      '<div class="form-group narrow"><label>ID (ej: C.E.01.01)</label>'+
-        '<input type="text" id="ce-id" value="'+esc(displayId)+'" '+(c?'disabled':'')+'></div>'+
-      '<div class="form-group narrow"><label>RA</label>'+
-        '<select id="ce-ra">'+raOpts+'</select></div>'+
-      '<div class="form-group narrow"><label>Peso (0-1)</label>'+
-        '<input type="number" id="ce-peso" value="'+(c?c.peso:0.2)+'" step="0.05" min="0" max="1"></div>'+
-    '</div>'+
-    '<div class="form-group mb2"><label>Descripcion</label>'+
-      '<textarea id="ce-nom">'+esc(c?c.nombre||'':'')+'</textarea></div>'+
-    '<div class="btn-group">'+
-      '<button class="btn btn-ok" id="_btn-ok">Guardar</button>'+
-      '<button class="btn btn-outline" id="_btn-cancel">Cancelar</button>'+
-    '</div>'
-  );
-  document.getElementById('_btn-ok').onclick=function(){saveCE(key||null);};
-  document.getElementById('_btn-cancel').onclick=function(){closeModal('config-modal');};
-};
-
-window.openEVModal=function(key){
-  const e=key?DB.ev[key]:null;
-  openModal('config-modal',
-    '<div class="modal-title">'+(e?'Editar Instancia':'+ Nueva Instancia')+'</div>'+
-    '<div class="form-row">'+
-      '<div class="form-group narrow"><label>Codigo (ej: PT1)</label>'+
-        '<input type="text" id="ev-id" value="'+esc(e?key:'')+'" '+(e?'disabled':'')+'></div>'+
-      '<div class="form-group"><label>Nombre</label>'+
-        '<input type="text" id="ev-nom" value="'+esc(e?e.nombre||'':'')+'" placeholder="Parcial Teorico 1"></div>'+
-    '</div>'+
-    '<div class="btn-group">'+
-      '<button class="btn btn-ok" id="_btn-ok">Guardar</button>'+
-      '<button class="btn btn-outline" id="_btn-cancel">Cancelar</button>'+
-    '</div>'
-  );
-  document.getElementById('_btn-ok').onclick=function(){saveEV(key||null);};
-  document.getElementById('_btn-cancel').onclick=function(){closeModal('config-modal');};
-};
-
-window.openEtqModal=function(key){
-  const e=key?DB.etiquetas[key]:null;
-  const tipos=[...new Set(objArr(DB.etiquetas).map(x=>String(x.tipo||'').trim()))].filter(Boolean);
-  const nivArr=getNivelArr();
-  const tiposOpts=tipos.map(t=>'<option value="'+esc(t)+'">').join('');
-  const nivelOpts=nivArr.map(n=>'<option value="'+n.code+'" '+(e&&e.nivel_code===n.code?'selected':'')+'>'+esc(n.nombre)+'</option>').join('');
-  openModal('config-modal',
-    '<div class="modal-title">'+(e?'Editar Etiqueta':'+ Nueva Etiqueta')+'</div>'+
-    '<div class="form-row">'+
-      '<div class="form-group"><label>Tipo (ej: Accion, Estado)</label>'+
-        '<input type="text" id="etq-tipo" value="'+esc(e?e.tipo||'':'')+'" list="etq-tipos-list" placeholder="Accion">'+
-        '<datalist id="etq-tipos-list">'+tiposOpts+'</datalist></div>'+
-      '<div class="form-group"><label>Nivel</label>'+
-        '<select id="etq-code" '+(e?'disabled':'')+'>'+nivelOpts+'</select></div>'+
-    '</div>'+
-    '<div class="form-group mb2"><label>Etiqueta</label>'+
-      '<input type="text" id="etq-texto" value="'+esc(e?e.etiqueta||'':'')+'" placeholder="Ej: Recuperar"></div>'+
-    '<div class="btn-group">'+
-      '<button class="btn btn-ok" id="_btn-ok">Guardar</button>'+
-      '<button class="btn btn-outline" id="_btn-cancel">Cancelar</button>'+
-    '</div>'
-  );
-  document.getElementById('_btn-ok').onclick=function(){saveEtq(key||null);};
-  document.getElementById('_btn-cancel').onclick=function(){closeModal('config-modal');};
-};
-
-
-window.saveRA=async function(key){
-  const rawId=(key||document.getElementById('ra-id').value.trim().toUpperCase());
-  const nom=document.getElementById('ra-nom').value.trim();
-  const peso=parseFloat(document.getElementById('ra-peso').value)||0;
-  if(!rawId||!nom){toast('ID y descripcion obligatorios','err');return;}
-  const id=rawId.replace(/\./g,'_');
-  const data={nombre:nom,peso,id:rawId};
-  await dbSet('ra/'+id,data);
-  DB.ra[id]=data;
-  closeModal('config-modal');toast('RA guardado');renderConfig();
-};
-window.delRA=async function(key){
-  const ok=await tgbConfirm({title:'Eliminar RA',msg:'Eliminar '+key+'? Se eliminan sus CEs y notas.',okLabel:'Eliminar',danger:true});
-  if(!ok) return;
-  const cesDel=Object.keys(DB.ce||{}).filter(k=>DB.ce[k].raId===key);
-  for(const ck of cesDel){await dbRemove('ce/'+ck);delete DB.ce[ck];}
-  const notasDel=Object.keys(DB.notas||{}).filter(k=>DB.notas[k].raId===key);
-  for(const nk of notasDel){await dbRemove('notas/'+nk);delete DB.notas[nk];}
-  await dbRemove('ra/'+key);delete DB.ra[key];
-  toast('RA eliminado');renderConfig();
-};
-window.saveCE=async function(key){
-  const rawId=(key||document.getElementById('ce-id').value.trim());
-  const raId=document.getElementById('ce-ra').value;
-  const nom=document.getElementById('ce-nom').value.trim();
-  const peso=parseFloat(document.getElementById('ce-peso').value)||0;
-  if(!rawId||!raId||!nom){toast('Todos los campos son obligatorios','err');return;}
-  const id=rawId.replace(/\./g,'_');
-  const data={raId,nombre:nom,peso,id:rawId};
-  await dbSet('ce/'+id,data);
-  DB.ce[id]=data;
-  closeModal('config-modal');toast('CE guardado');renderConfig();
-};
-window.delCE=async function(key){
-  const ok=await tgbConfirm({title:'Eliminar CE',msg:'Eliminar '+key+'?',okLabel:'Eliminar',danger:true});
-  if(!ok) return;
-  const notasDel=Object.keys(DB.notas||{}).filter(k=>DB.notas[k].ceId===key);
-  for(const nk of notasDel){await dbRemove('notas/'+nk);delete DB.notas[nk];}
-  await dbRemove('ce/'+key);delete DB.ce[key];
-  toast('CE eliminado');renderConfig();
-};
-window.saveEV=async function(key){
-  const id=(key||document.getElementById('ev-id').value.trim().toUpperCase());
-  const nom=document.getElementById('ev-nom').value.trim();
-  if(!id||!nom){toast('Codigo y nombre obligatorios','err');return;}
-  const data={nombre:nom};
-  await dbSet('ev/'+id,data);
-  DB.ev[id]=data;
-  closeModal('config-modal');toast('Instancia guardada');renderConfig();
-};
-window.delEV=async function(key){
-  const ok=await tgbConfirm({title:'Eliminar instancia',msg:'Eliminar '+key+'?',okLabel:'Eliminar',danger:true});
-  if(!ok) return;
-  const notasDel=Object.keys(DB.notas||{}).filter(k=>DB.notas[k].evId===key);
-  for(const nk of notasDel){await dbRemove('notas/'+nk);delete DB.notas[nk];}
-  await dbRemove('ev/'+key);delete DB.ev[key];
-  toast('Instancia eliminada');renderConfig();
-};
-
-window.saveEtq=async function(key){
-  const tipo=document.getElementById('etq-tipo').value.trim();
-  const code=document.getElementById('etq-code').value;
-  const texto=document.getElementById('etq-texto').value.trim();
-  if(!tipo||!code||!texto){toast('Completá todos los campos','err');return;}
-  const data={tipo,nivel_code:code,etiqueta:texto};
-  if(key){await dbSet(`etiquetas/${key}`,data);DB.etiquetas[key]=data;}
-  else{const k=await dbPush('etiquetas',data);DB.etiquetas[k]=data;}
-  closeModal('config-modal');toast('✅ Etiqueta guardada');renderConfig();
-};
-window.delEtq=async function(key){
-  const ok=await tgbConfirm({title:'Eliminar etiqueta',msg:'¿Eliminar esta etiqueta?',okLabel:'Eliminar',danger:true});
-  if(!ok) return;
-  await dbRemove(`etiquetas/${key}`);delete DB.etiquetas[key];
-  toast('🗑 Etiqueta eliminada');renderConfig();
-};
-
-window.delAllNotas=async function(){
-  const ok=await tgbConfirm({title:'Borrar TODAS las notas',msg:'¿Borrar todas las notas? Los alumnos y la configuración no se modifican.',okLabel:'Borrar todo',danger:true});
-  if(!ok) return;
-  await dbSet('notas',{});
-  DB.notas={};
-  toast('🗑 Todas las notas eliminadas');renderConfig();
-};
-
-// ── Logo injection ────────────────────────────────────────
-// Logos are injected via Python after generation
-
-
+let alumSearch='', alumGrupo='todos';
 // ── Global exposure ──
 window.renderGradesSummary = renderGradesSummary;
 window.readListaFile = readListaFile;
