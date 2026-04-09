@@ -924,7 +924,7 @@ function renderImportar(){
   const ceArr = impRA ? objArr(DB.ce).filter(c=>{
     const rid = String(c.raId||'');
     const ra  = DB.ra[impRA];
-    return rid===impRA || rid===(ra&&ra.id||impRA) || rid===impRA.replace(/_/g,'.');
+    return rid===impRA || rid===(ra&&ra.id||impRA) || rid===impRA;
   }) : [];
   const evArr = objArr(DB.ev).sort((a,b)=>a._key.localeCompare(b._key));
   const step1 = impRA && impCE && impEV;
@@ -1266,7 +1266,7 @@ function exportTableToExcel(title, students, ceIds) {
   csv += '"","",""';
   ceIds.forEach(function(ceId){
     const c=DB.ce[ceId];
-    const displayId = c&&c.id ? c.id : ceId.replace(/_/g,'.');
+    const displayId = c&&c.id ? c.id : ceId;
     csv += ',"'+displayId.replace(/"/g,'""')+'"';
   });
   csv += '\n';
@@ -1389,7 +1389,7 @@ function generatePDF(title, students, ceIds) {
   });
   ceIds.forEach(function(ceId){
     const c=DB.ce[ceId];
-    head2[0].push(c&&c.id ? c.id : ceId.replace(/_/g,'.'));
+    head2[0].push(c&&c.id ? c.id : ceId);
   });
 
   // Filas de datos
@@ -1529,7 +1529,7 @@ function buildRepTable(students, ceIds){
   }).join('');
   const ceHeaders=ceIds.map(function(ceId){
     const c=DB.ce[ceId];
-    const displayId=c&&c.id?c.id:ceId.replace(/_/g,'.');
+    const displayId=c&&c.id?c.id:ceId;
     return '<th class="center" title="'+esc(displayId)+'">'+esc(displayId)+'</th>';
   }).join('');
   const rows=students.map(function(s){
@@ -1582,7 +1582,7 @@ function genInstResult(){
   result.innerHTML =
     '<div class="card no-print flex gap items-c" style="margin-bottom:.5rem">'+
       '<span class="text-sm text-muted">'+students.length+' alumnos</span>'+
-      '<button class="btn btn-outline btn-sm" onclick="window.printReport()">&#128424; Imprimir</button>'+
+      '<button class="btn btn-outline btn-sm" onclick="window.printInstancia()">&#128438; Descargar PDF</button>'+
       '<button class="btn btn-ok btn-sm" onclick="window.exportInstancia()">&#128203; Exportar Excel</button>'+
     '</div>'+
     '<div class="card"><div class="card-title">'+esc(ev?ev.nombre:repEV)+'</div>'+
@@ -1632,7 +1632,7 @@ function genRaceResult(){
   result.innerHTML =
     '<div class="card no-print flex gap items-c" style="margin-bottom:.5rem">'+
       '<span class="text-sm text-muted">'+students.length+' alumnos</span>'+
-      '<button class="btn btn-outline btn-sm" onclick="window.printReport()">&#128424; Imprimir</button>'+
+      '<button class="btn btn-outline btn-sm" onclick="window.printRACE()">&#128438; Descargar PDF</button>'+
       '<button class="btn btn-ok btn-sm" onclick="window.exportRACE()">&#128203; Exportar Excel</button>'+
     '</div>'+
     '<div class="card"><div class="card-title">Mejor Nota por Criterio</div>'+
@@ -1732,7 +1732,6 @@ function genNivelResult(){
   result.innerHTML =
     '<div class="card no-print flex gap items-c" style="margin-bottom:.5rem">'+
       '<span class="text-sm text-muted">'+filtered.length+' alumnos - Nivel: '+esc(levelNames)+'</span>'+
-      '<button class="btn btn-outline btn-sm" onclick="window.printReport()">&#128424; Imprimir</button>'+
       '<button class="btn btn-outline btn-sm" onclick="window.printNivel()">&#128438; Descargar PDF</button>'+
       '<button class="btn btn-ok btn-sm" onclick="window.exportNivel(window._lastNivelStudents||[],window._lastNivelCeIds||[])">&#128203; Exportar Excel</button>'+
     
@@ -1979,7 +1978,7 @@ window.delRA = async function(key){
 window.openCEModal = function(key){
   const c = key ? DB.ce[key] : null;
   const raArr = objArr(DB.ra).sort(function(a,b){ return a._key.localeCompare(b._key); });
-  const displayId = c ? (c.id||key.replace(/_/g,'.')) : '';
+  const displayId = c ? (c.id||key) : '';
   const raOpts = raArr.map(function(r){
     const sel = c&&(c.raId===r._key||c.raId===r.id) ? 'selected' : '';
     return '<option value="'+r._key+'" '+sel+'>'+(r.id||r._key)+'</option>';
