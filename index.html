@@ -1406,13 +1406,14 @@ window.saveConfig=async function(){
 };
 
 // ── RA ──
+
 window.openRAModal=function(key){
   const r=key?DB.ra[key]:null;
-  const displayId = r ? (r.id||key) : '';
-  const content =
-    '<div class="modal-title">'+(r?'&#9999;&#65039; Editar RA':'+ Nuevo RA')+'</div>'+
+  const displayId=r?(r.id||key):'';
+  openModal('config-modal',
+    '<div class="modal-title">'+(r?'Editar RA':'+ Nuevo RA')+'</div>'+
     '<div class="form-row">'+
-      '<div class="form-group narrow"><label>ID (ej: RA01)</label>'+
+      '<div class="form-group narrow"><label>ID</label>'+
         '<input type="text" id="ra-id" value="'+esc(displayId)+'" '+(r?'disabled':'')+'></div>'+
       '<div class="form-group narrow"><label>Peso (0-1)</label>'+
         '<input type="number" id="ra-peso" value="'+(r?r.peso:0.1)+'" step="0.05" min="0" max="1"></div>'+
@@ -1420,46 +1421,24 @@ window.openRAModal=function(key){
     '<div class="form-group mb2"><label>Descripcion</label>'+
       '<textarea id="ra-nom">'+esc(r?r.nombre||'':'')+'</textarea></div>'+
     '<div class="btn-group">'+
-      '<button class="btn btn-ok" id="ra-save-btn">Guardar</button>'+
-      '<button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>'+
-    '</div>';
-  openModal('config-modal', content);
-  document.getElementById('ra-save-btn').onclick = function(){ saveRA(key||null); };
-};
-window.saveRA=async function(key){
-  const rawId=(key||document.getElementById('ra-id').value.trim().toUpperCase());
-  const nom=document.getElementById('ra-nom').value.trim();
-  const peso=parseFloat(document.getElementById('ra-peso').value)||0;
-  if(!rawId||!nom){toast('ID y descripción obligatorios','err');return;}
-  const id=rawId.replace(/\./g,'_');
-  const data={nombre:nom,peso,id:rawId};
-  await dbSet('ra/'+id,data);
-  DB.ra[id]=data;
-  closeModal('config-modal');toast('✅ RA guardado');renderConfig();
-};
-window.delRA=async function(key){
-  const ok=await tgbConfirm({title:'Eliminar RA',msg:`¿Eliminar <strong>${key}</strong>? Se eliminan sus CEs y notas.`,okLabel:'Eliminar',danger:true});
-  if(!ok) return;
-  const cesDel=Object.keys(DB.ce||{}).filter(k=>DB.ce[k].raId===key);
-  for(const ck of cesDel){await dbRemove(`ce/${ck}`);delete DB.ce[ck];}
-  const notasDel=Object.keys(DB.notas||{}).filter(k=>DB.notas[k].raId===key);
-  for(const nk of notasDel){await dbRemove(`notas/${nk}`);delete DB.notas[nk];}
-  await dbRemove(`ra/${key}`);delete DB.ra[key];
-  toast('🗑 RA eliminado');renderConfig();
+      '<button class="btn btn-ok" id="_btn-ok">Guardar</button>'+
+      '<button class="btn btn-outline" id="_btn-cancel">Cancelar</button>'+
+    '</div>'
+  );
+  document.getElementById('_btn-ok').onclick=function(){saveRA(key||null);};
+  document.getElementById('_btn-cancel').onclick=function(){closeModal('config-modal');};
 };
 
-// ── CE ──
 window.openCEModal=function(key){
   const c=key?DB.ce[key]:null;
   const raArr=objArr(DB.ra).sort((a,b)=>a._key.localeCompare(b._key));
-  const displayId = c ? (c.id||key.replace(/_/g,'.')) : '';
-  const raOpts = raArr.map(r=>{
-    const displayRA = r.id||r._key;
-    const sel = c&&(c.raId===r._key||c.raId===r.id) ? 'selected' : '';
-    return '<option value="'+r._key+'" '+sel+'>'+esc(displayRA)+'</option>';
+  const displayId=c?(c.id||key.replace(/_/g,'.')):'';
+  const raOpts=raArr.map(r=>{
+    const sel=c&&(c.raId===r._key||c.raId===r.id)?'selected':'';
+    return '<option value="'+r._key+'" '+sel+'>'+(r.id||r._key)+'</option>';
   }).join('');
-  const content =
-    '<div class="modal-title">'+(c?'&#9999;&#65039; Editar CE':'+ Nuevo CE')+'</div>'+
+  openModal('config-modal',
+    '<div class="modal-title">'+(c?'Editar CE':'+ Nuevo CE')+'</div>'+
     '<div class="form-row">'+
       '<div class="form-group narrow"><label>ID (ej: C.E.01.01)</label>'+
         '<input type="text" id="ce-id" value="'+esc(displayId)+'" '+(c?'disabled':'')+'></div>'+
@@ -1471,93 +1450,59 @@ window.openCEModal=function(key){
     '<div class="form-group mb2"><label>Descripcion</label>'+
       '<textarea id="ce-nom">'+esc(c?c.nombre||'':'')+'</textarea></div>'+
     '<div class="btn-group">'+
-      '<button class="btn btn-ok" id="ce-save-btn">Guardar</button>'+
-      '<button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>'+
-    '</div>';
-  openModal('config-modal', content);
-  document.getElementById('ce-save-btn').onclick = function(){ saveCE(key||null); };
-};
-window.saveCE=async function(key){
-  const rawId=(key||document.getElementById('ce-id').value.trim());
-  const raId=document.getElementById('ce-ra').value;
-  const nom=document.getElementById('ce-nom').value.trim();
-  const peso=parseFloat(document.getElementById('ce-peso').value)||0;
-  if(!rawId||!raId||!nom){toast('Todos los campos son obligatorios','err');return;}
-  // Firebase no permite . en claves — los reemplazamos por _
-  const id = rawId.replace(/\./g,'_');
-  const data={raId,nombre:nom,peso,id:rawId};
-  await dbSet('ce/'+id,data);
-  DB.ce[id]=data;
-  closeModal('config-modal');toast('✅ CE guardado');renderConfig();
-};
-window.delCE=async function(key){
-  const ok=await tgbConfirm({title:'Eliminar CE',msg:`¿Eliminar <strong>${key}</strong>?`,okLabel:'Eliminar',danger:true});
-  if(!ok) return;
-  const notasDel=Object.keys(DB.notas||{}).filter(k=>DB.notas[k].ceId===key);
-  for(const nk of notasDel){await dbRemove(`notas/${nk}`);delete DB.notas[nk];}
-  await dbRemove(`ce/${key}`);delete DB.ce[key];
-  toast('🗑 CE eliminado');renderConfig();
+      '<button class="btn btn-ok" id="_btn-ok">Guardar</button>'+
+      '<button class="btn btn-outline" id="_btn-cancel">Cancelar</button>'+
+    '</div>'
+  );
+  document.getElementById('_btn-ok').onclick=function(){saveCE(key||null);};
+  document.getElementById('_btn-cancel').onclick=function(){closeModal('config-modal');};
 };
 
-// ── EV ──
-window.openEVModal=function(key=null){
+window.openEVModal=function(key){
   const e=key?DB.ev[key]:null;
-  openModal('config-modal',`
-    <div class="modal-title">${e?'✏️ Editar Instancia':'+ Nueva Instancia'}</div>
-    <div class="form-row">
-      <div class="form-group narrow"><label>Código (ej: PT1)</label>
-        <input type="text" id="ev-id" value="${e?esc(key):''}" ${e?'disabled':''}></div>
-      <div class="form-group"><label>Nombre completo</label>
-        <input type="text" id="ev-nom" value="${e?esc(e.nombre||''):''}" placeholder="Parcial Teórico 1"></div>
-    </div>
-    <div class="btn-group">
-      <button class="btn btn-ok" onclick="saveEV('${key||''}')">💾 Guardar</button>
-      <button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>
-    </div>`);
-};
-window.saveEV=async function(key){
-  const id=(key||document.getElementById('ev-id').value.trim().toUpperCase());
-  const nom=document.getElementById('ev-nom').value.trim();
-  if(!id||!nom){toast('Código y nombre obligatorios','err');return;}
-  const data={nombre:nom};
-  await dbSet(`ev/${id}`,data);
-  DB.ev[id]=data;
-  closeModal('config-modal');toast('✅ Instancia guardada');renderConfig();
-};
-window.delEV=async function(key){
-  const ok=await tgbConfirm({title:'Eliminar instancia',msg:`¿Eliminar <strong>${key}</strong>?`,okLabel:'Eliminar',danger:true});
-  if(!ok) return;
-  const notasDel=Object.keys(DB.notas||{}).filter(k=>DB.notas[k].evId===key);
-  for(const nk of notasDel){await dbRemove(`notas/${nk}`);delete DB.notas[nk];}
-  await dbRemove(`ev/${key}`);delete DB.ev[key];
-  toast('🗑 Instancia eliminada');renderConfig();
+  openModal('config-modal',
+    '<div class="modal-title">'+(e?'Editar Instancia':'+ Nueva Instancia')+'</div>'+
+    '<div class="form-row">'+
+      '<div class="form-group narrow"><label>Codigo (ej: PT1)</label>'+
+        '<input type="text" id="ev-id" value="'+esc(e?key:'')+'" '+(e?'disabled':'')+'></div>'+
+      '<div class="form-group"><label>Nombre</label>'+
+        '<input type="text" id="ev-nom" value="'+esc(e?e.nombre||'':'')+'" placeholder="Parcial Teorico 1"></div>'+
+    '</div>'+
+    '<div class="btn-group">'+
+      '<button class="btn btn-ok" id="_btn-ok">Guardar</button>'+
+      '<button class="btn btn-outline" id="_btn-cancel">Cancelar</button>'+
+    '</div>'
+  );
+  document.getElementById('_btn-ok').onclick=function(){saveEV(key||null);};
+  document.getElementById('_btn-cancel').onclick=function(){closeModal('config-modal');};
 };
 
-// ── Etiquetas ──
-window.openEtqModal=function(key=null){
+window.openEtqModal=function(key){
   const e=key?DB.etiquetas[key]:null;
   const tipos=[...new Set(objArr(DB.etiquetas).map(x=>String(x.tipo||'').trim()))].filter(Boolean);
   const nivArr=getNivelArr();
-  openModal('config-modal',`
-    <div class="modal-title">${e?'✏️ Editar Etiqueta':'+ Nueva Etiqueta'}</div>
-    <div class="form-row">
-      <div class="form-group"><label>Tipo (ej: Accion, Estado)</label>
-        <input type="text" id="etq-tipo" value="${e?esc(e.tipo||''):''}" list="etq-tipos-list" placeholder="Accion">
-        <datalist id="etq-tipos-list">${tipos.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
-      </div>
-      <div class="form-group"><label>Nivel</label>
-        <select id="etq-code" ${e?'disabled':''}>
-          ${nivArr.map(n=>`<option value="${n.code}" ${e&&e.nivel_code===n.code?'selected':''}>${esc(n.nombre)}</option>`).join('')}
-        </select>
-      </div>
-    </div>
-    <div class="form-group mb2"><label>Texto de la etiqueta</label>
-      <input type="text" id="etq-texto" value="${e?esc(e.etiqueta||''):''}" placeholder="Ej: Recuperar"></div>
-    <div class="btn-group">
-      <button class="btn btn-ok" onclick="saveEtq('${key||''}')">💾 Guardar</button>
-      <button class="btn btn-outline" onclick="closeModal('config-modal')">Cancelar</button>
-    </div>`);
+  const tiposOpts=tipos.map(t=>'<option value="'+esc(t)+'">').join('');
+  const nivelOpts=nivArr.map(n=>'<option value="'+n.code+'" '+(e&&e.nivel_code===n.code?'selected':'')+'>'+esc(n.nombre)+'</option>').join('');
+  openModal('config-modal',
+    '<div class="modal-title">'+(e?'Editar Etiqueta':'+ Nueva Etiqueta')+'</div>'+
+    '<div class="form-row">'+
+      '<div class="form-group"><label>Tipo (ej: Accion, Estado)</label>'+
+        '<input type="text" id="etq-tipo" value="'+esc(e?e.tipo||'':'')+'" list="etq-tipos-list" placeholder="Accion">'+
+        '<datalist id="etq-tipos-list">'+tiposOpts+'</datalist></div>'+
+      '<div class="form-group"><label>Nivel</label>'+
+        '<select id="etq-code" '+(e?'disabled':'')+'>'+nivelOpts+'</select></div>'+
+    '</div>'+
+    '<div class="form-group mb2"><label>Etiqueta</label>'+
+      '<input type="text" id="etq-texto" value="'+esc(e?e.etiqueta||'':'')+'" placeholder="Ej: Recuperar"></div>'+
+    '<div class="btn-group">'+
+      '<button class="btn btn-ok" id="_btn-ok">Guardar</button>'+
+      '<button class="btn btn-outline" id="_btn-cancel">Cancelar</button>'+
+    '</div>'
+  );
+  document.getElementById('_btn-ok').onclick=function(){saveEtq(key||null);};
+  document.getElementById('_btn-cancel').onclick=function(){closeModal('config-modal');};
 };
+
 window.saveEtq=async function(key){
   const tipo=document.getElementById('etq-tipo').value.trim();
   const code=document.getElementById('etq-code').value;
