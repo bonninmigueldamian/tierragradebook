@@ -1599,6 +1599,18 @@ window.delAllNotas=async function(){
 
 // ── Logo injection ────────────────────────────────────────
 // Logos are injected via Python after generation
+
+// ── Expose functions to global scope (ES module) ──
+window.renderImportar = renderImportar;
+window.renderAlumnos = renderAlumnos;
+window.renderReportes = renderReportes;
+window.renderConfig = renderConfig;
+window.renderRepInstancia = renderRepInstancia;
+window.renderRepRACE = renderRepRACE;
+window.renderRepNivel = renderRepNivel;
+window.switchTab = switchTab;
+window.renderCfgPanel = renderCfgPanel;
+window.refreshRep = refreshRep;
 </script>
 </body>
 </html>
