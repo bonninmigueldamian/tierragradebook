@@ -1592,168 +1592,151 @@ window.exportNivel = function(filtered, allCeIds){
 
 
 // ── Generar PDF ───────────────────────────────────────────
-function generatePDF(title, students, ceIds) {
+function generatePDF(title, subtitle, students, ceIds) {
   if(!students || !students.length) { toast('Sin datos para generar PDF','err'); return; }
-
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
-
-  // Colores
-  const navy  = [26, 39, 68];
+  const PW = 297;
+  const navy = [26, 39, 68];
   const gold  = [201, 168, 76];
-  const light = [240, 242, 247];
 
-  // ── Encabezado ──────────────────────────────────────────
-  doc.setFillColor(...navy);
-  doc.rect(0, 0, 297, 18, 'F');
-  doc.setTextColor(...gold);
-  doc.setFontSize(13);
-  doc.setFont('helvetica','bold');
-  doc.text('TierraGradeBook', 10, 11);
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(8);
-  doc.setFont('helvetica','normal');
-  doc.text(esc(DB.config.materia||''), 70, 11);
-
-  // ── Titulo del reporte ──────────────────────────────────
-  doc.setTextColor(...navy);
-  doc.setFontSize(11);
-  doc.setFont('helvetica','bold');
-  doc.text(title, 10, 26);
-  doc.setFontSize(8);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(100,100,100);
-  doc.text('Generado: '+new Date().toLocaleDateString('es-AR')+' '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}), 10, 31);
-
-  // ── Construir tabla ─────────────────────────────────────
   const raIds = [...new Set(ceIds.map(function(ceId){
     const c=DB.ce[ceId]; return c?c.raId:'?';
   }))].sort();
 
-  // Encabezado de columnas para autoTable
-  const head = [[]]; // fila de RA
-  const head2 = [['Apellido y Nombre','Grp']]; // fila de CE
-  head[0].push('Apellido y Nombre','Grp');
+  // ── Header band ──────────────────────────────────────────────────────────────
+  doc.setFillColor(...navy);
+  doc.rect(0, 0, PW, 16, 'F');
+  doc.setTextColor(...gold);
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text('TierraGradeBook', 10, 10);
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(esc(DB.config.materia||''), PW/2, 10, {align:'center', maxWidth: 160});
 
+  // ── Title block ───────────────────────────────────────────────────────────────
+  doc.setTextColor(...navy);
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text(title, 10, 23);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+  doc.setTextColor(100,100,100);
+  if(subtitle) doc.text(subtitle, 10, 29);
+
+  // ── Level color mapping ───────────────────────────────────────────────────────
+  const nivArr  = getNivelArr();
+  const nivFill = {P:[254,226,226],B:[254,243,199],A:[219,234,254],V:[220,252,231],N:[243,244,246]};
+  const nivTxt  = {P:[153,27,27],B:[124,45,18],A:[30,64,175],V:[20,83,45],N:[107,114,128]};
+  nivArr.forEach(function(l){
+    if(!nivFill[l.code]){nivFill[l.code]=[243,244,246];}
+    if(!nivTxt[l.code]){nivTxt[l.code]=[80,80,80];}
+  });
+
+  // ── Column widths ─────────────────────────────────────────────────────────────
+  const nameW = 52; const grpW = 10;
+  const avail = PW - 20 - nameW - grpW;
+  const ceW   = Math.min(30, Math.max(16, Math.floor(avail / Math.max(ceIds.length,1))));
+
+  // ── Build single-pass head (RA row + CE row, no duplication) ─────────────────
+  const raHeader = ['Apellido y Nombre', 'Grp'];
   raIds.forEach(function(ra){
     const raCEs = ceIds.filter(function(ceId){ return DB.ce[ceId]&&DB.ce[ceId].raId===ra; });
-    head[0].push(ra);
-    for(var i=1; i<raCEs.length; i++) head[0].push('');
-  });
-  ceIds.forEach(function(ceId){
-    const c=DB.ce[ceId];
-    head2[0].push(c&&c.id ? c.id : ceId);
+    raHeader.push(ra);
+    for(var i=1;i<raCEs.length;i++) raHeader.push('');
   });
 
-  // Filas de datos
+  const ceHeader = ['', ''];
+  ceIds.forEach(function(ceId){
+    const c=DB.ce[ceId];
+    ceHeader.push(c&&c.id?c.id:ceId);
+  });
+
+  // ── Body rows ─────────────────────────────────────────────────────────────────
   const body = students.map(function(s){
-    const row = [s.apellido+', '+s.nombre, s.grupo>0?String(s.grupo):''];
+    const fullName = s.apellido+', '+s.nombre;
+    const name     = fullName.length>32 ? fullName.substring(0,31)+'.' : fullName;
+    const row = [name, s.grupo>0?String(s.grupo):''];
     ceIds.forEach(function(ceId){
-      const c = DB.ce[ceId];
-      if(!c){ row.push(''); return; }
-      const notas = objArr(DB.notas).filter(function(n){
+      const c=DB.ce[ceId];
+      if(!c){row.push('');return;}
+      const notas=objArr(DB.notas).filter(function(n){
         return String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase()&&n.ceId===ceId;
       });
-      if(!notas.length){ row.push(''); return; }
-      const best  = Math.max.apply(null, notas.map(function(n){ return notaEfectiva(n); }));
-      const nv    = getNivel(best);
-      const code  = nv?nv.code:'N';
-      const mode  = getCellMode(code);
-      const tipos = getEtqTipos();
-      var cellVal = '';
+      if(!notas.length){row.push('');return;}
+      const best=Math.max.apply(null,notas.map(function(n){return notaEfectiva(n);}));
+      const nv=getNivel(best); const code=nv?nv.code:'N';
+      const mode=getCellMode(code); const tipos=getEtqTipos();
+      var cv='';
       tipos.forEach(function(tipo){
-        if(mode.types&&mode.types.includes(tipo)){
-          const etq=getEtq(tipo,code);
-          if(etq) cellVal+=(cellVal?' | ':'')+etq;
-        }
+        if(mode.types&&mode.types.includes(tipo)){const etq=getEtq(tipo,code);if(etq)cv+=(cv?' | ':'')+etq;}
       });
-      if(mode.nota!==false||!cellVal)
-        cellVal+=(cellVal?' | ':'')+best.toFixed(2);
-      row.push(cellVal);
+      if(mode.nota!==false||!cv) cv+=(cv?' | ':'')+best.toFixed(2);
+      row.push(cv);
     });
     return row;
   });
 
-  // Nivel color mapping
-  const nivColors = {
-    P: [254,226,226], B: [254,243,199], A: [219,234,254], V: [220,252,231], N: [243,244,246]
+  // ── Column styles ─────────────────────────────────────────────────────────────
+  const colStyles={
+    0:{cellWidth:nameW,fontStyle:'bold',overflow:'linebreak'},
+    1:{cellWidth:grpW,halign:'center'}
   };
-  const textColors = {
-    P: [153,27,27], B: [124,45,18], A: [30,64,175], V: [20,83,45], N: [107,114,128]
-  };
+  ceIds.forEach(function(_,i){colStyles[i+2]={cellWidth:ceW,halign:'center',fontSize:6.5};});
 
   doc.autoTable({
-    startY: 36,
-    head: [head[0], head2[0]],
+    startY: 33,
+    head: [raHeader, ceHeader],
     body: body,
     theme: 'grid',
-    styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak', minCellHeight: 6 },
-    headStyles: { fillColor: navy, textColor: 255, fontStyle: 'bold', fontSize: 7 },
-    alternateRowStyles: { fillColor: [248, 249, 252] },
-    columnStyles: {
-      0: { cellWidth: 38, fontStyle: 'bold' },
-      1: { cellWidth: 8,  halign: 'center' }
-    },
-    didParseCell: function(data) {
-      if(data.section==='head' && data.row.index===0){
-        // RA header row — gold background
-        const text = String(data.cell.text||'');
-        if(text && raIds.includes(text)){
-          data.cell.styles.fillColor = [40,55,100];
-          data.cell.styles.halign = 'center';
-        }
+    styles:{fontSize:7,cellPadding:{top:1.8,right:2,bottom:1.8,left:2},overflow:'linebreak',minCellHeight:6},
+    headStyles:{fillColor:navy,textColor:255,fontStyle:'bold',fontSize:7,minCellHeight:7},
+    alternateRowStyles:{fillColor:[248,249,252]},
+    columnStyles:colStyles,
+    didParseCell:function(data){
+      if(data.section==='head'&&data.row.index===0){
+        const txt=String(data.cell.text||'');
+        if(raIds.includes(txt)){data.cell.styles.fillColor=[36,52,90];data.cell.styles.halign='center';}
       }
-      if(data.section==='body' && data.column.index >= 2){
-        // Color cells by nivel
-        const val = String(data.cell.raw||'');
-        // Determine nivel from nota value if numeric
-        const num = parseFloat(val.replace(',','.'));
-        if(!isNaN(num)){
-          const nv = getNivel(num);
-          const code = nv?nv.code:'N';
-          data.cell.styles.fillColor = nivColors[code]||nivColors.N;
-          data.cell.styles.textColor = textColors[code]||textColors.N;
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.halign = 'center';
-        } else if(val && val!=='-' && val!=='') {
-          // Etiqueta text — use appropriate colors
-          data.cell.styles.halign = 'center';
-          data.cell.styles.fontSize = 6;
-        }
+      if(data.section==='head'&&data.row.index===1){
+        data.cell.styles.fillColor=[46,65,108];data.cell.styles.fontSize=6;
       }
-      if(data.section==='body' && data.column.index===1){
-        data.cell.styles.halign = 'center';
+      if(data.section==='body'&&data.column.index>=2){
+        const val=String(data.cell.raw||'').trim();
+        const num=parseFloat(val.replace(',','.'));
+        if(!isNaN(num)&&val!==''){
+          const nv=getNivel(num);const code=nv?nv.code:'N';
+          data.cell.styles.fillColor=nivFill[code]||nivFill.N;
+          data.cell.styles.textColor=nivTxt[code]||nivTxt.N;
+          data.cell.styles.fontStyle='bold';
+        }
+        if(val) data.cell.styles.halign='center';
       }
     },
-    // Footer con numero de pagina
-    didDrawPage: function(data) {
-      doc.setFontSize(7);
-      doc.setTextColor(150,150,150);
-      doc.text(
-        'Pagina '+doc.internal.getCurrentPageInfo().pageNumber,
-        doc.internal.pageSize.width - 20,
-        doc.internal.pageSize.height - 5
-      );
+    didDrawPage:function(data){
+      const pg=doc.internal.getCurrentPageInfo().pageNumber;
+      const tot=doc.internal.getNumberOfPages();
+      doc.setFontSize(6.5);doc.setTextColor(150,150,150);doc.setFont('helvetica','normal');
+      const ds=new Date().toLocaleDateString('es-AR')+' '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+      doc.text('Generado: '+ds, 10, 205);
+      doc.text('Pagina '+pg+(tot>1?' de '+tot:''), PW-10, 205,{align:'right'});
     }
   });
 
   doc.save(title.replace(/[^a-zA-Z0-9]/g,'_')+'.pdf');
   toast('PDF generado y descargado');
 }
-
 window.printInstancia = function(){
   const students = window._lastInstStudents||[];
   const ceIds    = window._lastInstCeIds||[];
   if(!students.length){ toast('Genera el reporte primero','err'); return; }
   const ev = DB.ev[repEV];
-  generatePDF('Reporte '+repEV+(ev?' - '+ev.nombre:''), students, ceIds);
+  generatePDF('Reporte '+repEV+(ev?' - '+ev.nombre:''), 'Por Instancia', students, ceIds);
 };
 
 window.printRACE = function(){
   const students = window._lastRaceStudents||[];
   const ceIds    = window._lastRaceCeIds||[];
   if(!students.length){ toast('Genera el reporte primero','err'); return; }
-  generatePDF('Mejor Nota por RA-CE', students, ceIds);
+  generatePDF('Mejor Nota por RA/CE', 'Mejor nota por alumno en todas las instancias', students, ceIds);
 };
 
 window.printNivel = function(){
@@ -1763,7 +1746,7 @@ window.printNivel = function(){
   const nivNames = repLevels.map(function(c){
     const l=getNivelArr().find(function(x){return x.code===c;}); return l?l.nombre:c;
   }).join('-');
-  generatePDF('Filtro Nivel '+nivNames, students, ceIds);
+  generatePDF('Filtro por Nivel: '+nivNames, 'Alumnos en los niveles seleccionados', students, ceIds);
 };
 
 
