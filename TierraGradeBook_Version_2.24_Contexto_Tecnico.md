@@ -5,11 +5,17 @@
 
 ---
 
+## ADVERTENCIA PARA EL LECTOR (IA o persona)
+
+Este documento es la fuente de verdad del proyecto. Cuando una pregunta requiera un detalle muy específico que no esté aquí, la respuesta correcta es **"hay que verificarlo en el index.html"**, nunca inventar. Las respuestas incorrectas más probables son inventar nombres de clases CSS, nombres de variables, o comportamientos de funciones que suenan plausibles pero no están verificados.
+
+---
+
 ## 1. Descripción del Sistema
 
 TierraGradeBook es una aplicación web de gestión de notas universitarias organizada por **Resultados de Aprendizaje (RA)** y **Criterios de Evaluación (CE)**. Permite importar notas desde CSV de Moodle, cargar notas manuales con prioridad sobre las importadas, y generar reportes en PDF y Excel coloreados por nivel de desempeño.
 
-**Usuarios:** Solo profesores. El acceso se controla manualmente por el administrador en Firebase. Los alumnos no tienen acceso a la app.
+**Usuarios:** Solo profesores. El acceso se controla manualmente por el administrador en Firebase. Los alumnos **no tienen acceso** a la app.
 
 **Instancia activa:**
 - Materia: `Análisis de Sistemas de Información - FRCU UTN`
@@ -33,7 +39,7 @@ TierraGradeBook es una aplicación web de gestión de notas universitarias organ
 | PDF | jsPDF + jsPDF-autoTable | 2.5.1 / 3.8.2 |
 | Tipografía | Google Fonts: Playfair Display + IBM Plex Sans | — |
 
-**Por qué no hay frameworks:** La app es un único `index.html` desplegado en GitHub Pages sin proceso de build. Mantener todo en un solo archivo simplifica el deploy — basta con subir el archivo al repositorio.
+**Por qué no hay frameworks:** La app es un único `index.html` desplegado en GitHub Pages sin proceso de build. Mantener todo en un solo archivo elimina bundlers, dependencias locales y pasos de compilación.
 
 ---
 
@@ -64,11 +70,11 @@ const firebaseConfig = {
 };
 ```
 
-> **Nota de seguridad:** El `apiKey` de Firebase es público por diseño. La seguridad real la proveen las Security Rules en Firebase, no las credenciales de conexión. Cualquiera puede ver el `apiKey` en el código fuente del navegador — eso es normal e inevitable en apps web.
+> **Nota de seguridad:** El `apiKey` es público por diseño — solo identifica el proyecto, no autoriza nada. La seguridad real la proveen las Security Rules. Alguien que vea el apiKey sin estar autenticado y autorizado no puede leer ni escribir nada.
 
 ---
 
-## 5. Firebase Security Rules (actuales)
+## 5. Firebase Security Rules (actuales y verificadas)
 
 ```json
 {
@@ -85,40 +91,36 @@ const firebaseConfig = {
 }
 ```
 
-**Explicación de la regla:**
-- `materias` y `permisos`: legibles por cualquier usuario autenticado con Google. Necesario porque la app lee `/permisos/` para saber a qué materias tiene acceso antes de poder verificar permisos.
-- `datos`: solo accesible si el email del usuario autenticado aparece como key en `/permisos/{materiaId}/`.
-- Los emails se guardan en Firebase con `_` reemplazando los `.` (Firebase no acepta puntos en keys). La regla encadena 4 `.replace('.','_')` porque Firebase Rules no soporta regex con flags. Cubre hasta 4 puntos en el email (ej: `pablo.colombo@gmail.com` → `pablo_colombo@gmail_com`).
-- Nadie puede modificar `/permisos/` desde la app (`.write: false`). Solo el administrador desde la consola de Firebase.
+**Explicación:**
+- `materias` y `permisos`: legibles por cualquier Gmail autenticado. Necesario porque la app lee estos nodos ANTES de saber si el usuario tiene permisos.
+- `datos`: solo accesible si el email (con puntos reemplazados por `_`) existe como key en `/permisos/{materiaId}/`.
+- Nadie puede modificar `/permisos/` desde la app (`.write: false`). Solo el admin desde la consola de Firebase.
+- Firebase Rules no soporta regex con flags (`/\./g`). Por eso se encadenan 4 `.replace('.','_')` — cada uno reemplaza el primer punto restante. Cubre hasta 4 puntos en el email.
 
 ---
 
 ## 6. Estructura de Datos en Firebase
 
-### IMPORTANTE: IDs con caracteres especiales
+### REGLA CRÍTICA: Firebase no acepta puntos en keys
 
-Firebase **no acepta puntos (`.`) en los keys** de los nodos. Tampoco acepta otros caracteres especiales como `$`, `#`, `[`, `]`, `/`.
+Firebase no acepta `.` en los keys de nodos. Tampoco acepta `$`, `#`, `[`, `]`, `/`.
 
-Los IDs de RA y CE tienen puntos en su definición original (ej: `C.E.01.01`, `R.A.01`). La solución:
-- El **key** de Firebase usa guiones bajos en lugar de puntos: `CE_01_01`, `RA01`
-- Dentro del nodo, el campo **`id`** guarda el valor original para mostrar: `"C.E.01.01"`
-- La función `objArr()` agrega `_key` al objeto para que el código pueda referirse al key de Firebase
-
-Lo mismo aplica para los emails en `/permisos/`: `pablo_colombo@gmail_com: true`
+**Solución implementada:**
+- Los IDs de CE se guardan con `_` en lugar de `.` como key (ej: `CE_01_01`)
+- Los emails en `/permisos/` usan `_` en lugar de `.`
+- La función `objArr()` agrega `_key` a cada objeto con el key real de Firebase
 
 ```
 /materias/
-  {materiaId}: { nombre: "Análisis de Sistemas de Información - FRCU UTN" }
-  // Ej: ANALISIS_2026: { nombre: "..." }
+  ANALISIS_2026: { nombre: "Análisis de Sistemas de Información - FRCU UTN" }
 
 /permisos/
-  {materiaId}/
-    {email_con_guiones_bajos}: true
-    // Ej: bonninmiguel@gmail_com: true
-    // Ej: pablo_colombo@gmail_com: true
-    // Los puntos del email se reemplazan por _ (Firebase no acepta . en keys)
+  ANALISIS_2026/
+    bonninmiguel@gmail_com: true    ← email con _ en lugar de .
+    mvansorena@gmail_com: true
+    pablo_colombo@gmail_com: true
 
-/datos/{materiaId}/
+/datos/ANALISIS_2026/
 
   config/
     materia: "Análisis de Sistemas de Información - FRCU UTN"
@@ -126,208 +128,91 @@ Lo mismo aplica para los emails en `/permisos/`: `pablo_colombo@gmail_com: true`
 
   alumnos/
     {key_autogenerado}/
-      apellido: "GARCIA"        // siempre en MAYÚSCULAS (lo convierte al importar)
-      nombre: "JUAN PABLO"      // siempre en MAYÚSCULAS
-      email: "juan.garcia@gmail.com"
+      apellido: "GARCIA"            ← siempre MAYÚSCULAS
+      nombre: "JUAN PABLO"          ← siempre MAYÚSCULAS
+      email: "juan.garcia@gmail.com" ← con puntos originales
       legajo: "14150216"
       año: 2026
-      grupo: 6                  // 0 = sin grupo
+      grupo: 6                      ← 0 = sin grupo
 
   ra/
-    {key}/                      // key = ID sin puntos (ej: RA01)
-      id: "RA01"                // valor a mostrar (igual al key en este caso)
-      nombre: "Reconoce los distintos interesados en el proceso de desarrollo"
+    RA01/                           ← key sin puntos
+      id: "RA01"                    ← valor a mostrar
+      nombre: "Reconoce los distintos interesados..."
       peso: 0.3
 
   ce/
-    {key}/                      // key = ID con _ en lugar de . (ej: CE_01_01)
-      id: "CE_01_01"            // en este caso el id y el key son iguales
-      nombre: "C.E.01.01. Reconoce los distintos interesados..."  // nombre completo descriptivo
-      raId: "RA01"              // referencia al RA padre
+    CE_01_01/                       ← key con _ en lugar de .
+      id: "CE_01_01"                ← valor a mostrar
+      nombre: "C.E.01.01. Reconoce los distintos interesados..."
+      raId: "RA01"
       peso: 0.3
 
-  ev/                           // Instancias de evaluación
-    {key}/                      // key = código corto (ej: PT1, PP1, R1PT1)
+  ev/
+    PT1/                            ← código corto de la instancia
       nombre: "Parcial Teorico 1"
 
   niveles/
-    {code}/                     // P, B, A, V (configurables desde la UI)
+    P/
       code: "P"
       nombre: "Principiante"
       desde: 0
       hasta: 3.99
+    B/ A/ V/  ← igual estructura
 
   notas/
     {key_autogenerado}/
-      email: "juan.garcia@gmail.com"   // email del alumno (con puntos originales)
-      raId: "RA01"                     // key del RA
-      ceId: "CE_01_01"                 // key del CE
-      evId: "PT1"                      // key de la instancia
-      nota: 8.33                       // convertida a escala /10
-      notaoriginal: 1.67               // valor exacto del CSV (escala original)
-      notamanual: null                 // null = no hay; número = tiene prioridad sobre nota
-      ts: 1712345678000                // timestamp Unix
+      email: "juan.garcia@gmail.com"  ← con puntos originales
+      raId: "RA01"
+      ceId: "CE_01_01"
+      evId: "PT1"
+      nota: 8.33           ← convertida a /10 al importar
+      notaoriginal: 1.67   ← valor exacto del CSV (escala original del Moodle)
+      notamanual: null     ← null=no hay; número=tiene prioridad absoluta sobre nota
+      ts: 1712345678000    ← timestamp Unix
 
   etiquetas/
     {key_autogenerado}/
-      tipo: "Accion"            // nombre del conjunto (ej: Accion, Estado)
-      nivel_code: "P"           // código del nivel al que aplica
-      etiqueta: "Recuperar"     // texto a mostrar en celdas de reportes
+      tipo: "Accion"          ← nombre del conjunto (ej: Accion, Estado)
+      nivel_code: "P"         ← código del nivel al que aplica
+      etiqueta: "Recuperar"   ← texto a mostrar en celdas de reportes
 ```
 
 ---
 
-## 7. Arquitectura del Código
+## 7. Sistema de Notas — Reglas Absolutas
 
-### 7.1 El Problema Fundamental de ES Modules
+### 7.1 Los tres campos de nota
 
-La app usa `<script type="module">`. En módulos ES, **todas las funciones tienen scope local al módulo** y no son accesibles desde el scope global (`window`). Los atributos HTML `onclick="miFuncion()"` buscan en `window` y no las encuentran → `ReferenceError`.
+| Campo | Escala | Quién lo escribe | Se pierde al reimportar |
+|---|---|---|---|
+| `notaoriginal` | Original del CSV (ej: sobre 2) | `confirmImport` | **SÍ** |
+| `nota` | 1-10 | `confirmImport` | **SÍ** |
+| `notamanual` | 1-10 | `openEditNotas` | **SÍ** |
 
-**Solución obligatoria:** Toda función que sea llamada desde HTML (tanto atributos inline como HTML generado dinámicamente) debe ser explícitamente expuesta al scope global:
+### 7.2 DECISIÓN DE DISEÑO CRÍTICA: Reimportación borra TODO
 
-```javascript
-// Al final del módulo, antes del cierre de </script>:
-window.miFuncion = miFuncion;
+**Al reimportar un CSV para una combinación RA+CE+EV:**
+1. Se borran **TODAS** las notas existentes de esa combinación
+2. Esto incluye `notamanual` — **las notas manuales SE PIERDEN**
+3. Se insertan las nuevas notas del CSV con `notamanual: null`
+4. El profe tiene que volver a cargar las notas manuales manualmente
 
-// O definida directamente en window:
-window.miFuncion = async function() { ... };
-```
-
-**Diagnóstico rápido:** Si un botón no responde y la consola muestra `ReferenceError: X is not defined`, la causa es que `window.X` no está expuesta. Es el error más frecuente en esta app.
-
-### 7.2 Patrón de Renderizado (innerHTML + addEventListener)
-
-La app no usa frameworks — todo el HTML dinámico se genera como strings y se asigna via `innerHTML`. El patrón estándar:
+Esta es la **Opción A**, elegida deliberadamente por simplicidad. No hay lógica de preservar notas manuales. Es una decisión de diseño documentada.
 
 ```javascript
-function renderAlgo() {
-  // 1. Generar HTML como string y asignar
-  document.getElementById('panel').innerHTML =
-    '<button id="mi-btn">Click</button>';
-
-  // 2. DESPUÉS del innerHTML, adjuntar eventos
-  document.getElementById('mi-btn').addEventListener('click', function() {
-    // handler
-  });
+// Código real de confirmImport — borra TODO:
+const existentes = Object.entries(DB.notas||{})
+  .filter(([,n]) => n.raId===impRA && n.ceId===impCE && n.evId===impEV)
+  .map(([k]) => k);
+for(const k of existentes) {
+  await dbRemove(`notas/${k}`);
+  delete DB.notas[k];
 }
+// Luego inserta nuevas con notamanual: null
 ```
 
-**Nunca usar onclick inline** en el HTML generado:
-```javascript
-// ❌ INCORRECTO - no funciona en ES modules
-'<button onclick="miFuncion()">Click</button>'
-
-// ✅ CORRECTO - addEventListener después del render
-document.getElementById('btn').addEventListener('click', miFuncion);
-
-// ✅ TAMBIÉN CORRECTO si miFuncion está en window
-'<button onclick="window.miFuncion()">Click</button>'
-```
-
-### 7.3 Event Delegation para Evitar Stacking
-
-Cuando un panel se re-renderiza múltiples veces (ej: cada vez que se selecciona un filtro), los listeners se acumulan causando que haya que hacer múltiples clicks para cerrar modales. Solución con flag:
-
-```javascript
-const panel = document.getElementById('panel-importar');
-if(!panel._delegated) {
-  panel._delegated = true;
-  panel.addEventListener('click', function(e) {
-    const btn = e.target.closest('[data-action]');
-    if(!btn) return;
-    const { action, ra, ce, ev } = btn.dataset;
-    if(action === 'edit-notas') window.openEditNotas(ra, ce, ev);
-    if(action === 'del-notas')  window.delGrpNotas(ra, ce, ev);
-  });
-}
-```
-
-El flag `_delegated` persiste en el elemento DOM entre re-renders porque se asigna al objeto DOM, no al innerHTML.
-
-### 7.4 Helpers de Base de Datos
-
-Todas las operaciones Firebase pasan por estos wrappers que muestran el indicador de guardado:
-
-```javascript
-function dbRef(path) {
-  return ref(db, `datos/${CURRENT_MATERIA.id}/${path}`);
-}
-
-async function dbSet(path, val)    { showSaving(true); await set(dbRef(path), val);    showSaving(false); }
-async function dbPush(path, val)   { showSaving(true); const r = await push(dbRef(path), val); showSaving(false); return r.key; }
-async function dbRemove(path)      { showSaving(true); await remove(dbRef(path));       showSaving(false); }
-async function dbUpdate(path, val) { showSaving(true); await update(dbRef(path), val);  showSaving(false); }
-```
-
-**CRÍTICO:** Siempre usar estos wrappers, nunca llamar a `set()`, `push()`, etc. de Firebase directamente. Aseguran que el indicador visual de guardado funcione.
-
-### 7.5 Variables de Estado Global
-
-```javascript
-// ── Sesión ────────────────────────────────────────────────
-let CURRENT_USER    = null;   // objeto usuario Firebase autenticado
-let CURRENT_MATERIA = null;   // { id: "ANALISIS_2026", nombre: "..." }
-let USER_MATERIAS   = [];     // array de materias accesibles para el usuario
-let DB_LISTENERS    = [];     // refs de listeners Firebase activos (para detach)
-
-// ── Espejo local de Firebase ──────────────────────────────
-let DB = {
-  config:    {},  // { materia, año }
-  alumnos:   {},  // { [key]: { apellido, nombre, email, legajo, año, grupo } }
-  ra:        {},  // { [key]: { id, nombre, peso } }
-  ce:        {},  // { [key]: { id, raId, nombre, peso } }
-  ev:        {},  // { [key]: { nombre } }
-  niveles:   {},  // { [code]: { code, nombre, desde, hasta } }
-  notas:     {},  // { [key]: { email, raId, ceId, evId, nota, notaoriginal, notamanual, ts } }
-  etiquetas: {},  // { [key]: { tipo, nivel_code, etiqueta } }
-};
-
-// ── UI State ──────────────────────────────────────────────
-let currentTab  = 'inicio';
-let alumSearch  = '';          // texto de búsqueda en tab Alumnos
-let alumGrupo   = 'todos';     // filtro de grupo en tab Alumnos
-
-// ── Importar CSV State ────────────────────────────────────
-let impRA       = '';          // key del RA seleccionado
-let impCE       = '';          // key del CE seleccionado
-let impEV       = '';          // key de la instancia seleccionada
-let impStep     = 1;           // paso actual del wizard (1, 2, 3)
-let impFile     = null;        // objeto File del CSV seleccionado
-let impPreview  = [];          // array de filas procesadas para preview
-
-// ── Reportes State ────────────────────────────────────────
-let repType      = 'instancia'; // 'instancia' | 'race' | 'nivel'
-let repEV        = '';          // instancia seleccionada en reporte 1
-let repLevels    = [];          // niveles seleccionados en reporte 3
-let repNivelMode = 'any';       // 'any' | 'all' para reporte 3
-let repCellMode  = {};          // config de celdas (qué mostrar por nivel) — persistida en localStorage
-
-// ── Datos temporales para PDF/Excel ──────────────────────
-// Se llenan al generar el reporte y se usan por los botones de export
-window._lastInstStudents  = [];
-window._lastInstCeIds     = [];
-window._lastRaceStudents  = [];
-window._lastRaceCeIds     = [];
-window._lastNivelStudents = [];
-window._lastNivelCeIds    = [];
-```
-
----
-
-## 8. Funciones Clave — Implementación
-
-### 8.1 objArr(obj)
-
-```javascript
-function objArr(obj) {
-  if(!obj) return [];
-  return Object.entries(obj).map(([k, v]) => Object.assign({}, v, { _key: k }));
-}
-```
-
-Convierte un objeto Firebase `{ key1: {datos}, key2: {datos} }` en un array `[{datos, _key:'key1'}, {datos, _key:'key2'}]`. Es la función más usada en toda la app — toda iteración sobre datos de Firebase la pasa por aquí.
-
-### 8.2 notaEfectiva(n)
+### 7.3 notaEfectiva(n) — REGLA ABSOLUTA
 
 ```javascript
 function notaEfectiva(n) {
@@ -337,474 +222,204 @@ function notaEfectiva(n) {
 }
 ```
 
-**REGLA ABSOLUTA:** Toda operación que use la nota de un alumno (reportes, promedios, dashboard, exportaciones, PDF) DEBE usar `notaEfectiva(n)` en lugar de `n.nota`. Si `notamanual` tiene cualquier valor numérico (incluyendo 0), ese valor tiene prioridad absoluta. `n.nota` solo se usa para mostrar la nota original del CSV.
+**TODA operación que use la nota de un alumno DEBE usar `notaEfectiva(n)`, nunca `n.nota`.**
 
-### 8.3 getBestNotaEfectiva(email, raId, ceId)
+Esto incluye: reportes, promedios, dashboard, PDF, Excel, colores de celda.
 
-```javascript
-function getBestNotaEfectiva(email, raId, ceId) {
-  const gs = objArr(DB.notas).filter(n =>
-    String(n.email||'').toLowerCase() === email.toLowerCase() &&
-    n.raId === raId && n.ceId === ceId
-  );
-  if(!gs.length) return null;
-  return Math.max(...gs.map(n => notaEfectiva(n)));
-}
-```
+**Caso especial crítico:** Si `notamanual = 0`, retorna `0`. Cero es una nota válida. La verificación `!== null && !== undefined && !== ''` acepta el cero correctamente. Si en algún lugar se usa `if(n.notamanual)` el cero sería falsy en JavaScript y se ignoraría — eso es un bug.
 
-Retorna la mejor nota efectiva del alumno para una combinación RA+CE considerando **todas** las instancias de evaluación. Usada en el reporte "Mejor Nota por RA/CE". Si no hay notas, retorna `null`.
-
-### 8.4 getNivelArr() y getNivel(nota)
+### 7.4 Conversión de escala al importar
 
 ```javascript
-function getNivelArr() {
-  return objArr(DB.niveles).sort((a, b) => a.desde - b.desde);
-}
-
-function getNivel(nota) {
-  if(nota === null || nota === undefined || isNaN(nota)) return null;
-  return getNivelArr().find(l => nota >= l.desde && nota <= l.hasta);
-}
-```
-
-Los niveles se cargan desde Firebase (son configurables). `getNivel()` retorna el objeto de nivel completo `{ code, nombre, desde, hasta }` o `null` si la nota no entra en ningún rango.
-
-### 8.5 sortAlumnos(arr)
-
-```javascript
-function sortAlumnos(arr) {
-  return [...arr].sort((a, b) =>
-    (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre, 'es')
-  );
-}
-```
-
-Ordena por apellido+nombre en español (respeta ñ, acentos, etc.).
-
-### 8.6 tgbConfirm({ title, msg, okLabel, danger })
-
-```javascript
-function tgbConfirm({ title='¿Confirmar?', msg='', okLabel='Aceptar', danger=false } = {}) {
-  return new Promise(resolve => {
-    // Crea overlay con modal de confirmación
-    // Resuelve true si acepta, false si cancela
-  });
-}
-```
-
-Reemplaza `window.confirm()` con un modal visual consistente con el diseño de la app. Se usa con `await`:
-
-```javascript
-const ok = await tgbConfirm({ title: 'Eliminar', msg: '¿Seguro?', okLabel: 'Eliminar', danger: true });
-if(!ok) return;
-```
-
-### 8.7 toast(msg, type)
-
-```javascript
-function toast(msg, type='ok') {
-  // type: 'ok' (verde) | 'err' (rojo) | 'warn' (amarillo)
-  // Aparece en la esquina inferior derecha por 3 segundos
-}
-```
-
-Notificación no bloqueante. Usada para confirmar acciones exitosas y reportar errores menores.
-
-### 8.8 openModal(id, html) y closeModal(id)
-
-```javascript
-function openModal(id, html) {
-  // Busca elemento con ese id y coloca el HTML dentro
-  // Si ya existe un modal previo en el mismo id, lo elimina primero
-}
-function closeModal(id) {
-  const el = document.getElementById(id);
-  if(el) el.innerHTML = '';
-}
-```
-
-Sistema de modales. El `id` suele ser `'config-modal'` (para modales de configuración) o `'alumnos-modal'`. CRÍTICO: `closeModal` debe estar expuesta como `window.closeModal`.
-
-### 8.9 loadAllData()
-
-```javascript
-async function loadAllData() {
-  const mid = CURRENT_MATERIA.id;
-  const snap = await get(ref(db, `datos/${mid}`));
-  const data = snap.val() || {};
-  DB.config    = data.config    || { materia: CURRENT_MATERIA.nombre, año: new Date().getFullYear() };
-  DB.alumnos   = data.alumnos   || {};
-  DB.ra        = data.ra        || {};
-  DB.ce        = data.ce        || {};
-  DB.ev        = data.ev        || {};
-  DB.notas     = data.notas     || {};
-  DB.etiquetas = data.etiquetas || {};
-  // Niveles: si no existen, crea defaults y los guarda
-  if(data.niveles) { DB.niveles = data.niveles; }
-  else { DB.niveles = getDefaultNiveles(); dbSet('niveles', DB.niveles); }
-}
-```
-
-Carga todo el árbol de datos de la materia activa en una sola lectura. Se ejecuta al seleccionar materia. Los datos quedan en el objeto `DB` como espejo local — las operaciones CRUD actualizan tanto Firebase como `DB` localmente para evitar re-lecturas.
-
----
-
-## 9. Tabs y Funciones de Renderizado
-
-| Tab | Panel ID | Función render | Tab inicial |
-|---|---|---|---|
-| 🏠 Inicio | `panel-inicio` | `renderInicio()` | **Sí** |
-| 👥 Alumnos | `panel-alumnos` | `renderAlumnos()` | No |
-| 📋 Notas | `panel-importar` | `renderImportar()` | No |
-| 📊 Reportes | `panel-reportes` | `renderReportes()` | No |
-| ⚙️ Config | `panel-config` | `renderConfig()` | No |
-| ❓ Ayuda | `panel-ayuda` | `renderAyuda()` | No |
-
-```javascript
-function switchTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('panel-'+tab).classList.add('active');
-  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-  if(tab === 'inicio')    renderInicio();
-  if(tab === 'alumnos')   renderAlumnos();
-  if(tab === 'importar')  renderImportar();
-  if(tab === 'reportes')  renderReportes();
-  if(tab === 'config')    renderConfig();
-  if(tab === 'ayuda')     renderAyuda();
-}
-```
-
----
-
-## 10. Sistema de Notas — Diseño Completo
-
-### 10.1 Los tres campos de nota
-
-| Campo | Escala | Quién lo escribe | Cuándo cambia |
-|---|---|---|---|
-| `notaoriginal` | Escala original del CSV | `confirmImport` | Cada reimportación |
-| `nota` | 1-10 | `confirmImport` | Cada reimportación |
-| `notamanual` | 1-10 | `openEditNotas` | Solo el profe manualmente |
-
-### 10.2 Lógica de nota efectiva
-
-```
-notaEfectiva =
-  notamanual !== null  →  notamanual  (prioridad absoluta, incluyendo 0)
-  notamanual === null  →  nota
-```
-
-### 10.3 Reimportación de CSV — Opción A
-
-Al reimportar para la misma combinación RA+CE+EV:
-1. Se borran **todas** las notas existentes de esa combinación (incluyendo `notamanual`)
-2. Se insertan las notas del nuevo CSV con `notamanual: null`
-
-```javascript
-// En confirmImport:
-const existentes = Object.entries(DB.notas||{})
-  .filter(([,n]) => n.raId===impRA && n.ceId===impCE && n.evId===impEV)
-  .map(([k]) => k);
-for(const k of existentes) { await dbRemove(`notas/${k}`); delete DB.notas[k]; }
-// Luego insertar nuevas...
-const data = {
-  email, raId: impRA, ceId: impCE, evId: impEV,
-  nota: row.nota,
-  notaoriginal: row.rawNota,
-  notamanual: null,
-  ts: Date.now()
-};
-```
-
-### 10.4 Panel de edición de notas manuales
-
-**Acceso:** Tab Notas → "Notas cargadas" → botón ✏️ Editar en la fila deseada
-
-**Columnas:** Alumno | Grp | Orig.CSV | Nota(/10) | Nota Manual | Efectiva | Borrar(✕)
-
-**Comportamiento del botón ✕ (borrar nota manual):**
-- **No guarda inmediatamente** — solo limpia el campo visualmente y lo marca en `clearedKeys`
-- La columna "Efectiva" se actualiza en tiempo real para mostrar el fallback a `nota`
-- Al hacer click en "Guardar": procesa todos los inputs (guarda los con valor, borra los marcados como limpiados)
-
-**Después de guardar:** Recarga las notas desde Firebase antes de reabrir el panel para garantizar datos frescos.
-
-### 10.5 Conversión de escala al importar
-
-```javascript
-// Detecta columna y máximo del CSV de Moodle
 const gradeCol = fields.find(h => /calificaci[oó]n\//i.test(h));
 const maxNota  = gradeCol
   ? parseFloat(gradeCol.match(/\/(\d+[,.]\d*)/)[1].replace(',','.')) || 2
   : 2;
 const nota = Math.round((rawNota / maxNota) * 10 * 100) / 100;
+// Ejemplo: CSV nota=1.67, máximo=2 → nota = (1.67/2)*10 = 8.35
 ```
-
-Ejemplo: CSV con nota `1.67` sobre un máximo de `2` → `nota = (1.67/2)*10 = 8.35`
 
 ---
 
-## 11. Reportes
+## 8. Arquitectura del Código
 
-### 11.1 Tres tipos de reporte
+### 8.1 EL problema más importante: ES Modules y window
 
-| Tipo | Variable estado | Función generar | Almacena datos en |
-|---|---|---|---|
-| Por Instancia | `repEV` | `genInstResult()` | `window._lastInstStudents/CeIds` |
-| Mejor Nota RA/CE | — | `genRaceResult()` | `window._lastRaceStudents/CeIds` |
-| Filtro por Nivel | `repLevels`, `repNivelMode` | `genNivelResult()` | `window._lastNivelStudents/CeIds` |
+La app usa `<script type="module">`. **En módulos ES, las funciones tienen scope local — no son globales.** Los atributos HTML `onclick="miFuncion()"` buscan en `window` y no las encuentran → `ReferenceError`.
 
-El flujo es: el usuario configura filtros → click "Generar reporte" → la función genera la tabla HTML y almacena los datos raw en `window._lastXxx` → los botones PDF/Excel usan esos datos almacenados.
+**Solución obligatoria:** Toda función llamada desde HTML debe exponerse:
+```javascript
+window.miFuncion = miFuncion;
+```
 
-### 11.2 Panel "Mostrar en cada celda"
+**Diagnóstico:** Si un botón no responde y la consola muestra `ReferenceError: X is not defined`, la causa es que `window.X` no está expuesta. Es el error más frecuente.
 
-Configura qué aparece en cada celda de los reportes según el nivel del alumno. Persiste en `localStorage` como `repCellMode`.
+### 8.2 Patrón de renderizado
 
 ```javascript
-// Estructura de repCellMode:
-{
-  P: { nota: true,  types: ['Accion'] },
-  B: { nota: false, types: ['Estado', 'Accion'] },
-  A: { nota: true,  types: [] },
-  V: { nota: true,  types: [] }
+function renderAlgo() {
+  document.getElementById('panel').innerHTML = '<button id="mi-btn">Click</button>';
+  // DESPUÉS del innerHTML, adjuntar eventos:
+  document.getElementById('mi-btn').addEventListener('click', function() { ... });
 }
 ```
 
-Funciones relacionadas:
-- `loadCellMode()` / `saveCellMode()` — lee/escribe localStorage
-- `getCellMode(code)` — retorna config para un nivel
-- `toggleCellNota(code)` — activa/desactiva nota numérica para un nivel
-- `toggleCellTipo(code, tipo)` — activa/desactiva una etiqueta para un nivel
-- `renderCfgPanel()` — renderiza el panel visual de configuración
+**Nunca usar onclick inline** en HTML generado dinámicamente.
 
-### 11.3 buildCell(nota)
+### 8.3 Event listener stacking — bug frecuente
+
+**Síntoma:** Hay que hacer 4-5 clicks en "Cerrar" para que un modal cierre.
+**Causa:** Cada re-render del panel agrega un nuevo listener al mismo elemento DOM.
+**Solución:** Flag `_delegated` en el elemento DOM:
 
 ```javascript
-function buildCell(nota) {
-  const nv   = getNivel(nota);
-  const code = nv ? nv.code : 'N';
-  const mode = getCellMode(code);
-  const tipos = getEtqTipos();
-  // Construye contenido de la celda según modo
-  // Retorna '<td class="nota-cell">...</td>'
+const panel = document.getElementById('panel-importar');
+if(!panel._delegated) {
+  panel._delegated = true;
+  panel.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    if(btn.dataset.action === 'edit-notas') window.openEditNotas(...);
+    if(btn.dataset.action === 'del-notas')  window.delGrpNotas(...);
+  });
 }
 ```
 
-Construye el HTML de una celda del reporte aplicando colores por nivel y etiquetas configuradas. **SIEMPRE** llamar con `buildCell(notaEfectiva(n))`, nunca con `buildCell(n.nota)`.
+### 8.4 DB como espejo local
 
-### 11.4 generatePDF(reportType, reportDetail, students, ceIds)
-
-```javascript
-generatePDF(
-  'Reporte Por Instancia',          // tipo (aparece como título)
-  'PT1 - Parcial Teorico 1',        // detalle (aparece en subtítulo)
-  students,                          // array de alumnos con _cells calculadas
-  ceIds                              // array de keys de CE
-)
-```
-
-Genera PDF A4 horizontal. Características:
-- Header negro/dorado en **todas** las páginas (via `willDrawPage` — ejecuta antes que autoTable)
-- `margin: { top: HDR_H+14 }` reserva espacio para el header en todas las páginas
-- Nombres truncados a 26 caracteres para evitar wrapping
-- Columna nombre: 46mm, Grp: 9mm, CE: calculado automáticamente (máx 30mm, mín 15mm)
-- Celdas coloreadas por nivel igual que la UI
-- Footer: fecha+hora a la izquierda, número de página a la derecha
-
-### 11.5 exportTableToExcel(title, students, ceIds)
-
-Genera CSV con BOM UTF-8 (compatible con Excel sin configuración). Estructura:
-```
-Fila 1: título del reporte
-Fila 2: nombre de materia, año, fecha
-Fila 3: vacía
-Fila 4: encabezado RA (Apellido, Nombre, Grupo, RA01, "", "", RA02, ...)
-Fila 5: encabezado CE ("", "", "", CE_01_01, CE_01_02, ...)
-Filas 6+: datos de alumnos
-```
-
-Las celdas respetan la configuración del panel "Mostrar en cada celda" igual que los reportes en pantalla.
-
----
-
-## 12. Niveles de Desempeño
-
-**Son configurables** desde Config → Niveles de Desempeño → ✏️ Editar. Se guardan en Firebase y se cargan al iniciar. Si no existen en Firebase, se crean con los defaults.
-
-**Defaults:**
-
-| Code | Nombre | Desde | Hasta |
-|---|---|---|---|
-| P | Principiante | 0 | 3.99 |
-| B | Básico | 4 | 6.99 |
-| A | Autónomo | 7 | 8.99 |
-| V | Avanzado | 9 | 10 |
-
-**Colores en UI y PDF:**
-
-| Code | Fondo | Texto |
-|---|---|---|
-| P | `#fee2e2` | `#991b1b` |
-| B | `#fef3c7` | `#7c2d12` |
-| A | `#dbeafe` | `#1e40af` |
-| V | `#dcfce7` | `#14532d` |
-| N (sin nota) | `#f3f4f6` | `#6b7280` |
-
-Si se agregan niveles nuevos con códigos distintos a P/B/A/V, hay que agregar sus colores en las funciones `generatePDF` y `buildCell`.
-
----
-
-## 13. Etiquetas
-
-Las etiquetas son textos que aparecen en las celdas de los reportes según el nivel del alumno. Se configuran en Config → Etiquetas por Nivel.
-
-**Tipos comunes:** Accion (ej: "Recuperar", "Mejorar"), Estado (ej: "Regular", "Promovido")
-
-**Funciones:**
-```javascript
-function getEtqTipos() {
-  // Retorna array de tipos únicos ["Accion", "Estado", ...]
-}
-function getEtq(tipo, nivel_code) {
-  // Retorna el texto de la etiqueta para ese tipo y nivel, o ''
-}
-```
-
----
-
-## 14. Paleta de Colores (CSS Variables)
-
-```css
---navy:    #111111   /* Negro principal — fondos de header, tablas, botones */
---navy2:   #1c1c1c   /* Negro secundario */
---navy3:   #2a2a2a   /* Negro terciario */
---gold:    #c9a84c   /* Dorado principal — logo, acentos, tabs activos */
---gold2:   #e8d08a   /* Dorado claro — textos sobre fondo negro */
---bg:      #f0f2f7   /* Fondo general de la app */
---white:   #fff
---text:    #111111
---muted:   #6b7280   /* Textos secundarios */
---border:  #dde2ee   /* Bordes de cards y tablas */
---border2: #c8d0e2   /* Bordes de inputs */
---ok:      #16a34a   /* Verde — éxito */
---warn:    #d97706   /* Amarillo — advertencia */
---err:     #dc2626   /* Rojo — error */
-```
-
-**REGLA:** El sistema usa **negro con dorado**, nunca azul navy. Si se agregan elementos nuevos, usar `var(--navy)` para fondos oscuros. Nunca usar colores como `#1a2744`, `#243256`, `#0f1c38` u otros azules navy hardcodeados.
-
-Los colores en el PDF se usan como RGB:
-```javascript
-const navy = [17, 17, 17];   // #111
-const gold  = [201, 168, 76]; // #c9a84c
-```
-
----
-
-## 15. Favicon
-
-El favicon es un SVG embebido directamente en el `<head>` como data URL:
-
-```html
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,...">
-```
-
-El SVG muestra el símbolo **ϕ** (phi) en dorado (#C9A84C) sobre fondo negro con bordes redondeados. Compatible con todos los browsers modernos. No requiere archivo externo.
-
----
-
-## 16. Indicador de Guardado
+`DB` es un objeto en memoria que replica los datos de Firebase. **Toda escritura debe actualizar AMBOS:**
 
 ```javascript
-function showSaving(on) {
-  document.getElementById('saving-bar').classList.toggle('show', on);
-  document.getElementById('saving-overlay').classList.toggle('show', on);
-}
+await dbSet('notas/'+key+'/notamanual', valor);  // Firebase
+DB.notas[key].notamanual = valor;                 // espejo local
 ```
 
-Dos elementos visuales mientras se guarda en Firebase:
-1. **Barra dorada** de 5px en el tope de la pantalla con animación de progreso
-2. **Pill flotante** en el centro inferior: "💾 Guardando..."
+Si solo se actualiza uno, la UI se desincroniza hasta el próximo reload.
 
-Se activan automáticamente via los wrappers `dbSet/dbPush/dbRemove/dbUpdate`.
+### 8.5 Listeners en tiempo real — VERIFICADO
+
+`onValue` está **importado** del SDK de Firebase pero **NO se usa activamente** como listener permanente en la operación normal de la app. La app carga datos con `get()` (lectura única) en `loadAllData()`. No hay sincronización automática entre browsers.
+
+`DB_LISTENERS` existe en el código para limpiar al cambiar de materia, no para listeners continuos.
+
+**Consecuencia:** Si dos profesores editan simultáneamente, sus cambios locales no se sincronizan automáticamente. El último en escribir a Firebase gana (last-write-wins). No hay protección contra concurrencia.
+
+### 8.6 Helpers de base de datos
+
+```javascript
+function dbRef(path) { return ref(db, `datos/${CURRENT_MATERIA.id}/${path}`); }
+async function dbSet(path, val)    { showSaving(true); await set(dbRef(path), val);    showSaving(false); }
+async function dbPush(path, val)   { showSaving(true); const r=await push(dbRef(path),val); showSaving(false); return r.key; }
+async function dbRemove(path)      { showSaving(true); await remove(dbRef(path));       showSaving(false); }
+async function dbUpdate(path, val) { showSaving(true); await update(dbRef(path), val);  showSaving(false); }
+```
+
+**Siempre usar estos wrappers.** Muestran el indicador de guardado y centralizan la lógica.
 
 ---
 
-## 17. Funciones Expuestas a window (lista completa)
+## 9. Variables de Estado Global (verificadas en el código)
 
 ```javascript
-// Auth y navegación
-window.signInWithGoogle, window.signOut
-window.switchTab, window._selectMateria, window.showMateria
+let CURRENT_USER    = null;
+let CURRENT_MATERIA = null;   // { id: "ANALISIS_2026", nombre: "..." }
+let USER_MATERIAS   = [];
+let DB_LISTENERS    = [];     // para limpiar al cambiar materia
+let DB = { config:{}, alumnos:{}, ra:{}, ce:{}, ev:{}, niveles:{}, notas:{}, etiquetas:{} };
 
-// Alumnos
-window.renderAlumnos
-window.openAlumnoModal, window.saveAlumno, window.delAlumno
-window.openImportListaModal, window.handleListaDrop, window.handleListaFile
-window.confirmImportLista, window.readListaFile
+let currentTab  = 'inicio';
+let alumSearch  = '';
+let alumGrupo   = 'todos';
 
-// Notas / Importar CSV
-window.renderImportar, window.parseCSV, window.confirmImport
-window.delGrpNotas, window.renderGradesSummary, window.openEditNotas
+// Importar CSV
+let impRA='', impCE='', impEV='', impStep=1, impFile=null, impPreview=[];
 
 // Reportes
-window.renderReportes
-window.renderRepInstancia, window.renderRepRACE, window.renderRepNivel
-window.refreshRep, window.renderCfgPanel
-window.genInstResult, window.genRaceResult, window.genNivelResult
-window.toggleCellNota, window.toggleCellTipo
-window.printInstancia, window.printRACE, window.printNivel
-window.exportInstancia, window.exportRACE, window.exportNivel
-window.buildRepTable
-
-// Configuración
-window.renderConfig, window.saveConfig
-window.openRAModal, window.saveRA, window.delRA
-window.openCEModal, window.saveCE, window.delCE
-window.openEVModal, window.saveEV, window.delEV
-window.openEtqModal, window.saveEtq, window.delEtq
-window.openNivelModal, window.saveNivel
-window.delAllNotas
-
-// Pantallas y ayuda
-window.renderAyuda, window.renderInicio
-
-// Modales
-window.closeModal
+let repType='instancia', repEV='', repLevels=[], repNivelMode='any';
+let repCellMode = {};  // config de celdas — persistida en localStorage
 
 // Datos temporales para export/PDF
-window._lastInstStudents, window._lastInstCeIds
-window._lastRaceStudents, window._lastRaceCeIds
-window._lastNivelStudents, window._lastNivelCeIds
+window._lastInstStudents=[], window._lastInstCeIds=[];
+window._lastRaceStudents=[], window._lastRaceCeIds=[];
+window._lastNivelStudents=[], window._lastNivelCeIds=[];
 ```
 
 ---
 
-## 18. Gestión de Permisos (Administración)
+## 10. localStorage — Configuración de Celdas (verificado en el código)
 
-### Agregar un profesor a una materia
+Hay tres cosas distintas que no hay que confundir:
 
-1. Ir a Firebase Console → Realtime Database
-2. Navegar a `/permisos/{materiaId}/`
-3. Click en el ícono `+` para agregar nodo
-4. **Key:** email del profesor con todos los puntos reemplazados por `_`
-   - `bonninmiguel@gmail.com` → `bonninmiguel@gmail_com`
-   - `pablo.colombo@frcu.utn.edu.ar` → `pablo_colombo@frcu_utn_edu_ar`
-5. **Value:** `true`
-6. Guardar. El profesor puede entrar en su próximo login.
+| Concepto | Valor |
+|---|---|
+| Variable JS en memoria | `repCellMode` (objeto) |
+| Constante con prefijo | `LS_CM = 'tgb_cm_'` |
+| Key real en localStorage | `'tgb_cm_' + CURRENT_MATERIA.id` |
 
-### Agregar una nueva materia
+Ejemplo de key real: `'tgb_cm_ANALISIS_2026'`
 
-1. En `/materias/`: agregar `{ ID_MATERIA: { nombre: "Nombre completo" } }`
-2. En `/permisos/{ID_MATERIA}/`: agregar los emails de los profesores
-3. La app la mostrará automáticamente en el selector de materias al iniciar sesión
+**`repCellMode` es el nombre de la variable interna en JavaScript. NO es la key de localStorage.** La key de localStorage es `LS_CM + materia.id`.
 
-### Cómo funciona la verificación en la app
+Funciones: `loadCellMode()` lee de localStorage y puebla `repCellMode`, `saveCellMode()` serializa `repCellMode` y lo escribe en localStorage. Es local por browser, no va a Firebase.
+
+---
+
+## 11. CSS — Clases verificadas en el código
+
+```css
+/* Niveles — chips de texto */
+.niv-P, .niv-B, .niv-A, .niv-V, .niv-N
+
+/* Notas — pills de color en reportes */
+.nota-P, .nota-B, .nota-A, .nota-V, .nota-N, .nota-pill, .nota-cell
+
+/* Etiquetas en celdas de reportes */
+.etq-tag          /* contenedor */
+.etq-P, .etq-B, .etq-A, .etq-V  /* color por nivel */
+```
+
+**Para agregar un nivel nuevo** (ej: code `"E"`), hay que agregar en el código:
+1. `.niv-E` en el CSS
+2. `.nota-E` en el CSS
+3. `.etq-E` en el CSS
+4. El color RGB en `generatePDF()` (arrays `nivFill` y `nivTxt`)
+5. El nodo en Firebase `/datos/{materiaId}/niveles/E/`
+
+---
+
+## 12. Funciones Clave (verificadas)
+
+### objArr(obj)
+```javascript
+function objArr(obj) {
+  if(!obj) return [];
+  return Object.entries(obj).map(([k,v]) => Object.assign({}, v, { _key: k }));
+}
+```
+Convierte objetos Firebase en arrays con `_key`. Usada en prácticamente toda iteración.
+
+### getBestNotaEfectiva(email, raId, ceId)
+Filtra notas del alumno para ese RA+CE (todas las instancias), aplica `notaEfectiva()` a cada una, retorna el máximo. Retorna `null` si no hay notas. Usada en el reporte RACE.
+
+### tgbConfirm({ title, msg, okLabel, danger })
+Modal de confirmación. Retorna Promise que resuelve `true`/`false`. Usada con `await`.
+
+### loadAllData()
+Carga todo `/datos/{materiaId}/` en una sola lectura `get()`. Si no existen niveles, llama a `getDefaultNiveles()` y los persiste en Firebase con `dbSet('niveles', ...)`. Se ejecuta al seleccionar materia.
+
+### sortAlumnos(arr)
+```javascript
+function sortAlumnos(arr) {
+  return [...arr].sort((a,b) => (a.apellido+a.nombre).localeCompare(b.apellido+b.nombre,'es'));
+}
+```
+Ordena por apellido+nombre en español (maneja ñ y tildes).
+
+---
+
+## 13. Verificación de Permisos en la App (código real)
 
 ```javascript
-// En loadUserMaterias():
 USER_MATERIAS = Object.entries(materias)
   .filter(([id]) => {
     const mp = permisos[id] || {};
@@ -815,189 +430,202 @@ USER_MATERIAS = Object.entries(materias)
   .map(([id, dat]) => ({ id, nombre: dat.nombre }));
 ```
 
-La app busca el email del usuario (con puntos reemplazados por `_`) como **key** en el objeto de permisos de cada materia.
+**La app busca el email como KEY, no como valor.** Solo reconoce el formato nuevo:
+```
+{ "pablo_colombo@gmail_com": true }  ← RECONOCIDO
+{ "email0": "pablo.colombo@gmail.com" }  ← IGNORADO (formato viejo)
+```
+
+El formato viejo tiene el email como valor. La app itera sobre `.keys()`, no sobre `.values()`, así que el formato viejo no da acceso aunque esté en Firebase.
 
 ---
 
-## 19. Bugs Importantes Resueltos
+## 14. Reportes
 
-### 19.1 Funciones no encontradas (ReferenceError)
-**Síntoma:** `ReferenceError: renderConfig is not defined`  
-**Causa:** La función existe pero no está expuesta como `window.xxx`  
-**Solución:** Agregar `window.renderConfig = renderConfig` al bloque de exposición
+### 14.1 Tres tipos
 
-### 19.2 Event listener stacking — múltiples clicks para cerrar
-**Síntoma:** Hay que hacer 4-5 clicks en "Cerrar" para que cierre un modal  
-**Causa:** Cada re-render del panel agrega un nuevo listener al mismo elemento  
-**Solución:** Flag `panel._delegated = true` para agregar el listener solo la primera vez
+| Tipo | Muestra |
+|---|---|
+| Por Instancia | Notas de un EV específico. Genera con `genInstResult()` |
+| RACE (Mejor Nota RA/CE) | Mejor `notaEfectiva` por alumno/CE en todas las instancias. Genera con `genRaceResult()` |
+| Filtro por Nivel | Alumnos en niveles seleccionados. Genera con `genNivelResult()` |
 
-### 19.3 Select pierde el valor seleccionado al re-renderizar
-**Síntoma:** Se selecciona RA01, se re-renderiza, vuelve a `--RA--`  
-**Causa:** `onchange` inline no funciona en ES modules; al re-renderizar se crea un nuevo select sin el valor  
-**Solución:** Guardar el valor en variable de estado ANTES de re-renderizar; el select se renderiza con `selected` basado en el estado
+**Flujo:** Configurar filtros → click "Generar" → función genera tabla HTML + guarda datos en `window._lastXxx` → botones PDF/Excel leen esos datos almacenados.
 
-### 19.4 `filtered is not defined` en genInstResult/genRaceResult
-**Síntoma:** El reporte no muestra datos, error en consola  
-**Causa:** Al agregar código de export, se pegó `window._lastNivelStudents = filtered` donde la variable se llama `students`  
-**Solución:** Cada función guarda sus propios datos: `window._lastInstStudents = students`, `window._lastRaceStudents = students`
+### 14.2 generatePDF(reportType, reportDetail, students, ceIds)
 
-### 19.5 PDF: título superpuesto con tabla en páginas 2+
-**Síntoma:** El header del reporte se dibuja encima de las primeras filas en la segunda página  
-**Causa:** `didDrawPage` se ejecuta DESPUÉS de que autoTable renderiza las filas  
-**Solución:** Usar `willDrawPage` (ejecuta ANTES) + `margin: { top: HDR_H+14 }` para reservar espacio
+```javascript
+// Callers reales (verificados):
+generatePDF('Reporte Por Instancia', repEV+' - '+ev.nombre, students, ceIds);
+generatePDF('Mejor Nota por RA/CE', 'Mejor nota considerando todas las instancias', students, ceIds);
+generatePDF('Filtro por Nivel', nivNames, students, ceIds);
+```
 
-### 19.6 Emails con puntos en Firebase Security Rules
-**Síntoma:** `Error: Permission denied` al aplicar reglas  
-**Causa:** Firebase Rules no soporta regex con flags (`/./g`); `.replace()` sin flags solo reemplaza el primer punto  
-**Solución:** Encadenar 4 `.replace('.','_')` — cubre hasta 4 puntos en el email (suficiente para cualquier dominio universitario)
+- Usa `willDrawPage` (NO `didDrawPage`) — se ejecuta ANTES de que autoTable dibuje las filas
+- `margin: { top: HDR_H+14 }` reserva espacio para el header en todas las páginas
+- Nombres truncados a 26 caracteres
+- Columna nombre: 46mm, Grp: 9mm, CE: calculado dinámicamente (mín 15mm, máx 30mm)
 
-### 19.7 buildRepTable missing
-**Síntoma:** `ReferenceError: buildRepTable is not defined` al generar reporte  
-**Causa:** La función fue borrada en un reemplazo masivo de código  
-**Solución:** La función debe existir y estar expuesta como `window.buildRepTable`
+### 14.3 Export Excel
 
-### 19.8 Funciones duplicadas
-**Síntoma:** `SyntaxError: Identifier 'X' has already been declared`  
-**Causa:** Al reemplazar secciones de código, el código anterior no fue eliminado completamente  
-**Diagnóstico:** Buscar con `re.finditer(r'function X\b', html)` para encontrar todas las ocurrencias  
-**Solución:** Eliminar la definición duplicada (dejar la más nueva)
+CSV con BOM UTF-8 (`\uFEFF` al inicio). Sin BOM, tildes y ñ aparecen corruptas en Excel Windows.
 
 ---
 
-## 20. Estructura del Archivo index.html
+## 15. Panel "Mostrar en cada celda"
 
-El archivo tiene ~2700 líneas con la siguiente organización:
+Configura qué aparece en las celdas de reportes por nivel. **Persiste en localStorage** (key: `tgb_cm_` + materiaId). NO va a Firebase.
 
+```javascript
+// Estructura de repCellMode:
+{
+  P: { nota: true,  types: ['Accion'] },
+  B: { nota: false, types: ['Estado'] },
+  A: { nota: true,  types: [] },
+  V: { nota: true,  types: [] }
+}
 ```
-<head>
-  Meta + favicon (SVG data URL)
-  Google Fonts CDN
-  jsPDF + autoTable CDN
-  <style> (~800 líneas de CSS)
-    - Variables CSS
-    - Reset y base
-    - Layout: header, tabs, panels
-    - Componentes: cards, tables, buttons, forms, modals, toasts
-    - Clases de niveles: .niv-P, .niv-B, .niv-A, .niv-V
-    - Clases de notas: .nota-pill, .nota-P, .nota-B, .nota-A, .nota-V
-    - Dashboard: .dash-*, .kpi-*, .ev-card, etc.
-    - @media print: oculta controles, muestra todo el contenido
-    - @keyframes: fadeUp, progress
 
-<body>
-  #toast-container
-  #saving-bar + #saving-overlay
-  #screen-loading
-  #screen-login
-  #screen-materias
-  #app
-    .hdr (header)
-    .tabs-bar
-    .main > .panels
-      #panel-inicio
-      #panel-alumnos
-      #panel-importar
-      #panel-reportes
-      #panel-config
-      #panel-ayuda
+**buildCell(nota):** SIEMPRE llamar con `buildCell(notaEfectiva(n))`, nunca `buildCell(n.nota)`.
 
-<script type="module">
-  // Firebase imports
-  // firebaseConfig + inicialización
-  // Variables de estado global
-  // Helpers de DB (dbRef, dbSet, dbPush, dbRemove, dbUpdate)
-  // Auth (signInWithGoogle, signOut, onAuthStateChanged)
-  // loadUserMaterias, loadAllData, enterMateria, detachListeners
-  // Helpers: objArr, esc, notaFmtStr
-  // notaEfectiva, getBestNotaEfectiva
-  // getNivelArr, getNivel, getDefaultNiveles
-  // getEtq, getEtqTipos
-  // loadCellMode, saveCellMode, getCellMode
-  // renderApp, switchTab, showScreen, setLoadingMsg
-  // renderMateriaSelector, _selectMateria, showMateria
-  // renderInicio
-  // renderAlumnos + openAlumnoModal + saveAlumno + delAlumno
-  // openImportListaModal + handleListaDrop/File + confirmImportLista + readListaFile
-  // renderImportar + parseCSVLine + parseCSV + confirmImport
-  // renderGradesSummary + openEditNotas
-  // delGrpNotas
-  // renderReportes + renderRepInstancia + renderRepRACE + renderRepNivel
-  // genInstResult + genRaceResult + genNivelResult
-  // generatePDF + printInstancia + printRACE + printNivel
-  // exportTableToExcel + exportInstancia + exportRACE + exportNivel
-  // buildRepTable + buildCell + renderCfgPanel + refreshRep
-  // toggleCellNota + toggleCellTipo
-  // renderConfig + saveConfig
-  // openRAModal + saveRA + delRA
-  // openCEModal + saveCE + delCE
-  // openEVModal + saveEV + delEV
-  // openEtqModal + saveEtq + delEtq
-  // openNivelModal + saveNivel
-  // delAllNotas
-  // renderAyuda
-  // renderInicio (dashboard)
-  // tgbConfirm, toast, openModal, closeModal, showSaving, showSaving
-  // sortAlumnos
-  // window.xxx = ... (todas las exposiciones)
+---
+
+## 16. Niveles de Desempeño
+
+Configurables desde Config → Niveles → ✏️ Editar. Se guardan en Firebase.
+
+**Defaults (se crean automáticamente si no existen en Firebase):**
+
+| Code | Nombre | Desde | Hasta |
+|---|---|---|---|
+| P | Principiante | 0 | 3.99 |
+| B | Básico | 4 | 6.99 |
+| A | Autónomo | 7 | 8.99 |
+| V | Avanzado | 9 | 10 |
+
+**Clases CSS verificadas:** `.niv-P`, `.niv-B`, `.niv-A`, `.niv-V`, `.niv-N`  
+**Colores en PDF:** hardcodeados en `generatePDF()`. Si se agrega code fuera de P/B/A/V, agregar color manualmente ahí.
+
+---
+
+## 17. Funciones Expuestas a window (lista completa verificada)
+
+```javascript
+window.signInWithGoogle, window.signOut
+window.switchTab, window._selectMateria, window.showMateria
+window.renderAlumnos, window.openAlumnoModal, window.saveAlumno, window.delAlumno
+window.openImportListaModal, window.handleListaDrop, window.handleListaFile
+window.confirmImportLista, window.readListaFile
+window.renderImportar, window.parseCSV, window.confirmImport
+window.delGrpNotas, window.renderGradesSummary, window.openEditNotas
+window.renderReportes, window.renderRepInstancia, window.renderRepRACE, window.renderRepNivel
+window.refreshRep, window.renderCfgPanel
+window.genInstResult, window.genRaceResult, window.genNivelResult
+window.toggleCellNota, window.toggleCellTipo
+window.printInstancia, window.printRACE, window.printNivel
+window.exportInstancia, window.exportRACE, window.exportNivel
+window.buildRepTable
+window.renderConfig, window.saveConfig
+window.openRAModal, window.saveRA, window.delRA
+window.openCEModal, window.saveCE, window.delCE
+window.openEVModal, window.saveEV, window.delEV
+window.openEtqModal, window.saveEtq, window.delEtq
+window.openNivelModal, window.saveNivel
+window.delAllNotas
+window.renderAyuda, window.renderInicio
+window.closeModal
 ```
+
+---
+
+## 18. Gestión de Permisos (Administración)
+
+### Agregar un profesor
+
+1. Firebase Console → Realtime Database → `/permisos/{materiaId}/`
+2. **Key** = email con todos los `.` reemplazados por `_`, **Value** = `true`
+   - `pablo.colombo@gmail.com` → `pablo_colombo@gmail_com`
+   - `juan.perez@frcu.utn.edu.ar` → `juan_perez@frcu_utn_edu_ar`
+3. No hay que tocar el código.
+
+### Agregar una nueva materia
+
+1. `/materias/`: `{ NUEVO_ID: { nombre: "Nombre completo" } }`
+2. `/permisos/NUEVO_ID/`: agregar emails de profesores
+3. La app la muestra automáticamente.
+
+---
+
+## 19. Bugs Resueltos — Los Más Importantes
+
+| Bug | Síntoma | Causa | Solución |
+|---|---|---|---|
+| ReferenceError | Botón no responde | Función no expuesta a `window` | `window.fn = fn` |
+| Múltiples clicks para cerrar | 4-5 clicks en "Cerrar" | Listeners acumulados en re-renders | Flag `_delegated` |
+| Select pierde valor | Select vuelve a `--RA--` | `onchange` inline no funciona en ES modules | Estado en variable + `selected` al renderizar |
+| `filtered is not defined` | Reporte no muestra datos | Variable mal nombrada entre funciones | Cada función almacena en su propio `_lastXxx` |
+| PDF superpuesto pág 2+ | Header encima de filas | `didDrawPage` ejecuta después de las filas | `willDrawPage` + `margin.top` |
+| Función duplicada | `SyntaxError: already declared` | Reemplazo dejó definición vieja | Buscar con `re.finditer(r'function X\b', html)` |
+| `notamanual=0` ignorada | Nota cero no tiene prioridad | `if(n.notamanual)` — el 0 es falsy | Comparación explícita `!== null && !== undefined && !== ''` |
+| Emails formato viejo | Usuario sin acceso | Formato `{email0:"..."}` — app busca por key | Migrar a `{pablo@gmail_com: true}` |
+
+---
+
+## 20. Paleta de Colores
+
+```css
+--navy:   #111111   /* negro principal */
+--navy2:  #1c1c1c   /* negro secundario */
+--navy3:  #2a2a2a   /* negro terciario */
+--gold:   #c9a84c   /* dorado */
+--gold2:  #e8d08a   /* dorado claro */
+```
+
+**REGLA:** El sistema usa negro + dorado. Nunca agregar azules navy.  
+**En PDF:** `navy = [17,17,17]`, `gold = [201,168,76]`
 
 ---
 
 ## 21. Versioning
 
-La versión aparece una sola vez, en la pantalla de carga:
-```html
-<div style="font-size:.7rem;color:rgba(255,255,255,.3);...">v2.24</div>
-```
+Versión en pantalla de carga, un solo lugar: `v2.24`.
 
-Incrementar al generar una nueva versión del `index.html`. Formato: `vMAYOR.MENOR` (ej: v2.24 → v2.25 para cambios menores, v3.00 para refactors grandes).
-
-**Historial relevante:**
-
-| Versión | Cambio principal |
+| Versión | Cambio |
 |---|---|
 | v2.00 | Primera versión Firebase estable |
-| v2.07 | Fix reportes (filtered is not defined) |
-| v2.09 | PDF con jsPDF + botones Descargar PDF |
 | v2.11 | notamanual + openEditNotas |
-| v2.13 | Renombrar tab Importar → Notas |
-| v2.17 | Dashboard Inicio + Tab Ayuda |
+| v2.13 | Tab "Importar" renombrado a "Notas" |
+| v2.17 | Dashboard Inicio + Ayuda |
 | v2.19 | PDF mejorado + niveles configurables |
-| v2.22 | Paleta negro/dorado (reemplazo de navy) |
-| v2.24 | Permisos Firebase por key + fix app |
+| v2.22 | Paleta negro/dorado |
+| v2.24 | Permisos Firebase por key |
 
 ---
 
 ## 22. Pendientes Conocidos
 
-- La ayuda debe actualizarse manualmente al agregar funcionalidades nuevas
-- No hay filtro por grupo en los reportes PDF/Excel
-- No hay log de auditoría de cambios de notas (quién modificó qué y cuándo)
-- No hay paginación en tablas (110 alumnos funcionan bien; con 500+ podría lentificarse)
-- El panel de edición de notas manuales requiere saber el RA+CE+EV exacto para abrirse; no hay búsqueda global de nota por alumno
-- Si se agregan niveles con códigos fuera de P/B/A/V, hay que agregar sus colores manualmente en `generatePDF` y en el CSS
+- No hay filtro por grupo en PDF/Excel
+- No hay log de auditoría de cambios de notas
+- No hay protección contra escrituras concurrentes entre profesores
+- Ayuda debe actualizarse manualmente al agregar funcionalidades
+- Niveles con code fuera de P/B/A/V requieren agregar CSS + color PDF manualmente
 
 ---
 
 ## 23. Cómo Continuar el Trabajo
 
-Para retomar desarrollo con una nueva sesión de IA:
+1. Compartir este `.md` + el `index.html` de la versión vigente
+2. Indicar qué se quiere hacer
 
-1. Compartir este documento (`TierraGradeBook_Version_2.24_Contexto_Tecnico.md`)
-2. Compartir el `index.html` de la versión vigente
-3. Indicar qué se quiere hacer
+**Los 5 puntos que no se pueden olvidar:**
+1. Exponer funciones nuevas a `window`
+2. Usar `addEventListener`, nunca `onclick` inline en HTML generado
+3. Usar `notaEfectiva(n)`, nunca `n.nota`
+4. Al reimportar CSV: las notas manuales **SE PIERDEN** (Opción A — decisión de diseño deliberada)
+5. Paleta negro + dorado, nunca navy
 
-**Los 5 puntos más críticos para no cometer errores:**
-
-1. **Siempre exponer funciones nuevas a `window`** — si aparece `ReferenceError: X is not defined`, es esto
-2. **Usar `addEventListener` nunca `onclick` inline** en HTML generado dinámicamente
-3. **Usar `notaEfectiva(n)` nunca `n.nota`** en cualquier cálculo de nota para reportes/promedios
-4. **Verificar duplicados** después de cualquier reemplazo grande de código con `re.finditer(r'function X\b', html)`
-5. **La paleta es negro (#111) + dorado (#c9a84c)** — nunca agregar colores navy/azul nuevos
-
-**Verificación de sintaxis antes de subir:**
+**Verificar sintaxis antes de subir:**
 ```bash
-# Extraer JS del HTML y verificar con Node.js
 python3 -c "
 import re
 with open('index.html','r',encoding='utf-8',errors='replace') as f: html=f.read()
@@ -1006,3 +634,5 @@ open('/tmp/check.js','w').write('\n'.join(scripts))
 "
 node --check /tmp/check.js
 ```
+
+**Ante cualquier duda sobre un detalle específico:** verificarlo directamente en el `index.html`. No inventar.
