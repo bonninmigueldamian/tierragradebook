@@ -835,6 +835,7 @@ function renderAlumnos(){
         '</div>'+
         '<button class="btn btn-primary btn-sm no-print" id="btn-agregar-alumno">+ Agregar</button>'+
         '<button class="btn btn-outline btn-sm no-print" id="btn-importar-lista">&#128203; Importar lista</button>'+
+        '<button class="btn btn-outline btn-sm no-print" id="btn-exportar-lista"'+(all.length?'':' disabled')+'>&#128190; Exportar lista CSV</button>'+
       '</div>'+
       '<div class="tbl-wrap"><table>'+
         '<thead><tr>'+
@@ -856,6 +857,8 @@ function renderAlumnos(){
   });
   document.getElementById('btn-agregar-alumno').addEventListener('click', function(){ openAlumnoModal(null); });
   document.getElementById('btn-importar-lista').addEventListener('click', function(){ openImportListaModal(); });
+  const btnExp=document.getElementById('btn-exportar-lista');
+  if(btnExp) btnExp.addEventListener('click', function(){ exportarListaAlumnos(); });
 
   // Table action buttons via delegation
   document.querySelector('#panel-alumnos tbody').addEventListener('click', function(e){
@@ -1017,6 +1020,48 @@ window.confirmImportLista = async function(){
   closeModal('alumnos-modal');
   toast('✅ ' + rows.length + ' alumnos importados');
   renderAlumnos();
+};
+
+// ─── Exportar lista de alumnos a CSV ─────────────────────
+// Formato idéntico al de importación: legajo;apellido;nombre;email;año;grupo
+// Sin header, una fila por alumno. Separador ";" (Excel ES) + BOM UTF-8.
+// El archivo resultante es directamente re-importable desde "Importar lista".
+window.exportarListaAlumnos = function(){
+  const alumnos = sortAlumnos(objArr(DB.alumnos));
+  if(!alumnos.length){ toast('No hay alumnos para exportar','err'); return; }
+
+  // Escape CSV: si el valor contiene ; , " o saltos de línea, lo encerramos en comillas y duplicamos las internas.
+  function csvEsc(v){
+    var s = (v==null) ? '' : String(v);
+    if(/[;,"\r\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+
+  const SEP = ';';
+  const lines = alumnos.map(function(s){
+    return [
+      csvEsc(s.legajo||''),
+      csvEsc(s.apellido||''),
+      csvEsc(s.nombre||''),
+      csvEsc(s.email||''),
+      csvEsc(s.año||new Date().getFullYear()),
+      csvEsc(s.grupo!=null ? s.grupo : 0)
+    ].join(SEP);
+  });
+
+  const csv = '\uFEFF' + lines.join('\r\n') + '\r\n';
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const matId = (CURRENT_MATERIA && CURRENT_MATERIA.id) ? CURRENT_MATERIA.id : 'materia';
+  const fecha = new Date().toISOString().slice(0,10);
+  a.href     = url;
+  a.download = 'alumnos_' + matId + '_' + fecha + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✅ ' + alumnos.length + ' alumnos exportados');
 };
 
 // ═══════════════════════════════════════════════════════════
