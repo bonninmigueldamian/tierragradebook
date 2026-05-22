@@ -149,6 +149,27 @@ input[type=file]{display:none}
 .step:last-child{border-right:none}
 .step.active{background:#111;color:#fff;font-weight:600}
 
+/* SUB-TABS (importar CSV: Moodle / Multi-CE) */
+.subtabs{display:flex;gap:.3rem;background:#f3f5fa;border:1px solid var(--border);border-radius:8px;padding:.25rem;margin-bottom:1rem}
+.subtab-btn{flex:1;background:none;border:none;color:var(--muted);padding:.5rem .8rem;font-family:inherit;font-size:.78rem;font-weight:600;cursor:pointer;border-radius:6px;transition:all .18s}
+.subtab-btn:hover{color:var(--navy);background:#eef2ff}
+.subtab-btn.active{background:var(--navy);color:var(--gold)}
+
+/* MULTI-CE: tabla preview, errores y badges */
+.mce-col-tbl{font-size:.74rem;margin-bottom:.6rem}
+.mce-col-tbl td,.mce-col-tbl th{padding:.32rem .5rem}
+.mce-err-list{background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:.7rem .9rem;color:#7f1d1d;font-size:.78rem;margin-bottom:.85rem;max-height:260px;overflow-y:auto}
+.mce-err-list ul{margin:.3rem 0 0 1.1rem;padding:0}
+.mce-err-list li{margin-bottom:.18rem}
+.mce-cell-bad{background:#fee2e2;color:#7f1d1d;font-weight:700}
+.mce-cell-blank{background:#f3f4f6;color:#9ca3af}
+.mce-mini{font-size:.66rem;color:var(--muted);display:block;line-height:1.1}
+.mce-modesel{display:flex;gap:.55rem;flex-wrap:wrap;margin-top:.35rem}
+.mce-modebtn{flex:1;min-width:180px;border:2px solid var(--border2);background:#fff;border-radius:8px;padding:.55rem .7rem;font-family:inherit;font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all .18s;text-align:left}
+.mce-modebtn:hover{border-color:var(--navy2)}
+.mce-modebtn.on{border-color:var(--navy);background:#fffdf5;color:var(--navy)}
+.mce-modebtn .mce-mini{margin-top:.18rem;color:var(--muted);font-weight:500}
+
 /* REPORTS */
 .rep-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.2rem}
 .rep-card{border:2px solid var(--border);border-radius:9px;padding:.95rem;cursor:pointer;transition:all .2s;background:#fff}
@@ -308,7 +329,7 @@ input[type=file]{display:none}
 <div id="screen-loading" class="full-screen navy">
   <div id="loading-logo"><img src="data:image/png;base64,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" style="height:60px;width:auto;display:block;margin:0 auto .6rem"></div>
   <div class="brand-title">TierraGradeBook</div>
-  <div style="font-size:.7rem;color:rgba(255,255,255,.3);margin-bottom:.3rem;text-align:center">v2.24</div>
+  <div style="font-size:.7rem;color:rgba(255,255,255,.3);margin-bottom:.3rem;text-align:center">v2.25</div>
   <div class="loading-msg" id="loading-msg">Iniciando...</div>
   <div class="spinner" id="loading-spinner"></div>
   <div id="loading-action" style="margin-top:1rem"></div>
@@ -1003,16 +1024,17 @@ window.confirmImportLista = async function(){
 // ═══════════════════════════════════════════════════════════
 let impStep=1,impRA='',impCE='',impEV='',impPreview=[],impFile=null;
 
-function renderImportar(){
-  const raArr = objArr(DB.ra).sort((a,b)=>a._key.localeCompare(b._key));
-  const ceArr = impRA ? objArr(DB.ce).filter(c=>{
-    const rid = String(c.raId||'');
-    const ra  = DB.ra[impRA];
-    return rid===impRA || rid===(ra&&ra.id||impRA) || rid===impRA;
-  }) : [];
-  const evArr = objArr(DB.ev).sort((a,b)=>a._key.localeCompare(b._key));
-  const step1 = impRA && impCE && impEV;
+// Sub-tab activa: 'moodle' (flujo histórico) | 'multice' (CSV multi-CE)
+let impMode='moodle';
 
+// Estado del flujo Multi-CE
+let impM_EV='', impM_PointMode='mal'; // 'bien' | 'mal'
+let impM_File=null;
+let impM_Cols=[];   // columnas detectadas: {idx, raId, ceId, total, valid, err}
+let impM_Rows=[];   // filas: {email, apellido, nombre, alumnoExisting, vals:[{raw, ok, err, nota}]}
+let impM_HeaderErr=''; // bloqueante general (separador, columnas requeridas, etc.)
+
+function renderImportar(){
   document.getElementById('panel-importar').innerHTML =
     '<div class="sec-title">&#128203; Notas</div>'+
 
@@ -1023,88 +1045,29 @@ function renderImportar(){
 
     '<div class="card" style="border:2px solid var(--navy2);margin-top:.5rem">'+
       '<div class="card-title" style="color:var(--navy2)">&#128229; Importar notas desde CSV</div>'+
-      '<div class="card">'+
-        '<div class="card-title" style="font-size:.78rem;border-bottom:none;padding-bottom:0">Paso 1 — Seleccionar RA / CE / Instancia</div>'+
-'<div class="steps">'+
-      '<div class="step '+(impStep>=1?'active':'')+'">1 RA / CE / EV</div>'+
-      '<div class="step '+(impStep>=2?'active':'')+'">2 Subir CSV</div>'+
-      '<div class="step '+(impStep>=3?'active':'')+'">3 Confirmar</div>'+
-    '</div>'+
-    '<div class="card">'+
-      '<div class="card-title">Paso 1 — Identificar la evaluacion</div>'+
-      '<div class="form-row">'+
-        '<div class="form-group narrow">'+
-          '<label>RA</label>'+
-          '<select id="imp-ra-sel">'+
-            '<option value="">— RA —</option>'+
-            raArr.map(r=>'<option value="'+r._key+'" '+(impRA===r._key?'selected':'')+'>'+(r.id||r._key)+'</option>').join('')+
-          '</select>'+
-        '</div>'+
-        '<div class="form-group wide">'+
-          '<label>Criterio de Evaluacion</label>'+
-          '<select id="imp-ce-sel">'+
-            '<option value="">— CE —</option>'+
-            ceArr.map(c=>'<option value="'+c._key+'" '+(impCE===c._key?'selected':'')+'>'+(c.id||c._key)+' — '+esc(String(c.nombre||'').substring(0,50))+'</option>').join('')+
-          '</select>'+
-        '</div>'+
-        '<div class="form-group">'+
-          '<label>Instancia</label>'+
-          '<select id="imp-ev-sel">'+
-            '<option value="">— EV —</option>'+
-            evArr.map(e=>'<option value="'+e._key+'" '+(impEV===e._key?'selected':'')+'>'+(e._key)+(e.nombre?' — '+esc(e.nombre):'')+'</option>').join('')+
-          '</select>'+
-        '</div>'+
+      '<div class="subtabs">'+
+        '<button class="subtab-btn '+(impMode==='moodle'?'active':'')+'" data-impmode="moodle">&#128218; CSV Moodle (1 CE)</button>'+
+        '<button class="subtab-btn '+(impMode==='multice'?'active':'')+'" data-impmode="multice">&#128202; CSV Multi-CE (examen propio)</button>'+
       '</div>'+
-      (step1?'<div class="alert alert-info">&#9989; <strong>'+impRA+' → '+impCE+' → '+impEV+'</strong></div>':'')+
-    '</div>'+
-    (step1?
-      '<div class="card">'+
-        '<div class="card-title">Paso 2 — Archivo CSV</div>'+
-        '<div class="file-drop" id="fdrop">'+
-          '<div style="font-size:1.5rem">'+(impFile?'✅':'📂')+'</div>'+
-          '<div style="font-weight:600;margin:.25rem 0">'+(impFile?esc(impFile.name):'Click o arrastrar CSV aqui')+'</div>'+
-          '<div class="text-sm text-muted">Formato Moodle / Google Classroom</div>'+
-        '</div>'+
-        '<input type="file" id="csv-inp" accept=".csv" style="display:none">'+
-        (impFile&&!impPreview.length?'<div style="margin-top:.65rem"><button class="btn btn-primary" id="btn-proc">&#128269; Procesar CSV</button></div>':'')+
-      '</div>'
-    :'')+
-    (impPreview.length?
-      '<div class="card">'+
-        '<div class="card-title">Paso 3 — Revisar '+
-          '<span class="chip chip-ok">'+impPreview.filter(r=>r.st==='ok').length+' encontrados</span>'+
-          (impPreview.filter(r=>r.st==='new').length?'<span class="chip chip-warn">&#9888; '+impPreview.filter(r=>r.st==='new').length+' nuevos</span>':'')+
-        '</div>'+
-        '<div class="tbl-wrap" style="max-height:360px;overflow-y:auto"><table>'+
-          '<thead><tr><th>Alumno</th><th>Email</th><th class="center">CSV</th><th class="center">/10</th><th>Nivel</th><th>Estado</th></tr></thead>'+
-          '<tbody>'+
-          impPreview.map(function(row){
-            var nv=getNivel(row.nota);
-            return '<tr>'+
-              '<td>'+esc(row.apellido)+', '+esc(row.nombre)+'</td>'+
-              '<td class="text-sm text-muted">'+esc(row.email)+'</td>'+
-              '<td class="center">'+row.rawNota+'</td>'+
-              '<td class="nota-cell"><span class="nota-pill '+(nv?'nota-'+nv.code:'nota-N')+'">'+notaFmtStr(row.nota)+'</span></td>'+
-              '<td>'+(nv?'<span class="niv niv-'+nv.code+'">'+esc(nv.nombre)+'</span>':'—')+'</td>'+
-              '<td>'+(row.st==='ok'?'<span class="niv niv-V">&#9989; Encontrado</span>':row.st==='new'?'<span class="niv niv-B">&#9888; Nuevo</span>':'<span class="niv niv-A">&#128260; Actualiza</span>')+'</td>'+
-            '</tr>';
-          }).join('')+
-          '</tbody></table></div>'+
-        '<div class="btn-group" style="margin-top:.85rem">'+
-          '<button class="btn btn-ok" id="btn-confirm-imp">&#9989; Confirmar ('+impPreview.length+')</button>'+
-          '<button class="btn btn-outline" id="btn-cancel-imp">&#8617; Cancelar</button>'+
-        '</div>'+
-      '</div>'
-    :'')+
-        '</div>'+
+      '<div id="imp-subpanel">'+
+        (impMode==='moodle' ? renderImportMoodle() : renderImportMultiCE())+
+      '</div>'+
     '</div>';
 
-  // Attach events AFTER rendering
-  // Summary action buttons
+  // Delegación de acciones del summary (editar/eliminar grupo de notas).
+  // Una sola vez por vida del panel — el flag _delegated evita stacking.
   const panelImp=document.getElementById('panel-importar');
   if(!panelImp._delegated){
     panelImp._delegated=true;
     panelImp.addEventListener('click', function(e){
+      // Sub-tabs
+      const subBtn=e.target.closest('[data-impmode]');
+      if(subBtn){
+        const m=subBtn.dataset.impmode;
+        if(m && m!==impMode){ impMode=m; renderImportar(); }
+        return;
+      }
+      // Acciones de filas del summary
       const btn=e.target.closest('[data-action]');
       if(!btn) return;
       const ra=btn.dataset.ra, ce=btn.dataset.ce, ev=btn.dataset.ev;
@@ -1112,13 +1075,111 @@ function renderImportar(){
       if(btn.dataset.action==='del-notas')  window.delGrpNotas(ra,ce,ev);
     });
   }
-  document.getElementById('imp-ra-sel').addEventListener('change', function(){
+
+  if(impMode==='moodle') attachMoodleEvents();
+  else attachMultiCEEvents();
+}
+
+// ── FLUJO 1: CSV Moodle (1 RA + 1 CE + 1 EV) ──────────────
+function renderImportMoodle(){
+  const raArr = objArr(DB.ra).sort((a,b)=>a._key.localeCompare(b._key));
+  const ceArr = impRA ? objArr(DB.ce).filter(c=>{
+    const rid = String(c.raId||'');
+    const ra  = DB.ra[impRA];
+    return rid===impRA || rid===(ra&&ra.id||impRA) || rid===impRA;
+  }) : [];
+  const evArr = objArr(DB.ev).sort((a,b)=>a._key.localeCompare(b._key));
+  const step1 = impRA && impCE && impEV;
+
+  return ''+
+    '<div class="card">'+
+      '<div class="card-title" style="font-size:.78rem;border-bottom:none;padding-bottom:0">Paso 1 — Seleccionar RA / CE / Instancia</div>'+
+      '<div class="steps">'+
+        '<div class="step '+(impStep>=1?'active':'')+'">1 RA / CE / EV</div>'+
+        '<div class="step '+(impStep>=2?'active':'')+'">2 Subir CSV</div>'+
+        '<div class="step '+(impStep>=3?'active':'')+'">3 Confirmar</div>'+
+      '</div>'+
+      '<div class="card">'+
+        '<div class="card-title">Paso 1 — Identificar la evaluacion</div>'+
+        '<div class="form-row">'+
+          '<div class="form-group narrow">'+
+            '<label>RA</label>'+
+            '<select id="imp-ra-sel">'+
+              '<option value="">— RA —</option>'+
+              raArr.map(r=>'<option value="'+r._key+'" '+(impRA===r._key?'selected':'')+'>'+(r.id||r._key)+'</option>').join('')+
+            '</select>'+
+          '</div>'+
+          '<div class="form-group wide">'+
+            '<label>Criterio de Evaluacion</label>'+
+            '<select id="imp-ce-sel">'+
+              '<option value="">— CE —</option>'+
+              ceArr.map(c=>'<option value="'+c._key+'" '+(impCE===c._key?'selected':'')+'>'+(c.id||c._key)+' — '+esc(String(c.nombre||'').substring(0,50))+'</option>').join('')+
+            '</select>'+
+          '</div>'+
+          '<div class="form-group">'+
+            '<label>Instancia</label>'+
+            '<select id="imp-ev-sel">'+
+              '<option value="">— EV —</option>'+
+              evArr.map(e=>'<option value="'+e._key+'" '+(impEV===e._key?'selected':'')+'>'+(e._key)+(e.nombre?' — '+esc(e.nombre):'')+'</option>').join('')+
+            '</select>'+
+          '</div>'+
+        '</div>'+
+        (step1?'<div class="alert alert-info">&#9989; <strong>'+impRA+' → '+impCE+' → '+impEV+'</strong></div>':'')+
+      '</div>'+
+      (step1?
+        '<div class="card">'+
+          '<div class="card-title">Paso 2 — Archivo CSV</div>'+
+          '<div class="file-drop" id="fdrop">'+
+            '<div style="font-size:1.5rem">'+(impFile?'✅':'📂')+'</div>'+
+            '<div style="font-weight:600;margin:.25rem 0">'+(impFile?esc(impFile.name):'Click o arrastrar CSV aqui')+'</div>'+
+            '<div class="text-sm text-muted">Formato Moodle / Google Classroom</div>'+
+          '</div>'+
+          '<input type="file" id="csv-inp" accept=".csv" style="display:none">'+
+          (impFile&&!impPreview.length?'<div style="margin-top:.65rem"><button class="btn btn-primary" id="btn-proc">&#128269; Procesar CSV</button></div>':'')+
+        '</div>'
+      :'')+
+      (impPreview.length?
+        '<div class="card">'+
+          '<div class="card-title">Paso 3 — Revisar '+
+            '<span class="chip chip-ok">'+impPreview.filter(r=>r.st==='ok').length+' encontrados</span>'+
+            (impPreview.filter(r=>r.st==='new').length?'<span class="chip chip-warn">&#9888; '+impPreview.filter(r=>r.st==='new').length+' nuevos</span>':'')+
+          '</div>'+
+          '<div class="tbl-wrap" style="max-height:360px;overflow-y:auto"><table>'+
+            '<thead><tr><th>Alumno</th><th>Email</th><th class="center">CSV</th><th class="center">/10</th><th>Nivel</th><th>Estado</th></tr></thead>'+
+            '<tbody>'+
+            impPreview.map(function(row){
+              var nv=getNivel(row.nota);
+              return '<tr>'+
+                '<td>'+esc(row.apellido)+', '+esc(row.nombre)+'</td>'+
+                '<td class="text-sm text-muted">'+esc(row.email)+'</td>'+
+                '<td class="center">'+row.rawNota+'</td>'+
+                '<td class="nota-cell"><span class="nota-pill '+(nv?'nota-'+nv.code:'nota-N')+'">'+notaFmtStr(row.nota)+'</span></td>'+
+                '<td>'+(nv?'<span class="niv niv-'+nv.code+'">'+esc(nv.nombre)+'</span>':'—')+'</td>'+
+                '<td>'+(row.st==='ok'?'<span class="niv niv-V">&#9989; Encontrado</span>':row.st==='new'?'<span class="niv niv-B">&#9888; Nuevo</span>':'<span class="niv niv-A">&#128260; Actualiza</span>')+'</td>'+
+              '</tr>';
+            }).join('')+
+            '</tbody></table></div>'+
+          '<div class="btn-group" style="margin-top:.85rem">'+
+            '<button class="btn btn-ok" id="btn-confirm-imp">&#9989; Confirmar ('+impPreview.length+')</button>'+
+            '<button class="btn btn-outline" id="btn-cancel-imp">&#8617; Cancelar</button>'+
+          '</div>'+
+        '</div>'
+      :'')+
+    '</div>';
+}
+
+function attachMoodleEvents(){
+  const step1 = impRA && impCE && impEV;
+  const raSel=document.getElementById('imp-ra-sel');
+  const ceSel=document.getElementById('imp-ce-sel');
+  const evSel=document.getElementById('imp-ev-sel');
+  if(raSel) raSel.addEventListener('change', function(){
     impRA=this.value; impCE=''; impEV=''; impPreview=[]; impFile=null; impStep=1; renderImportar();
   });
-  document.getElementById('imp-ce-sel').addEventListener('change', function(){
+  if(ceSel) ceSel.addEventListener('change', function(){
     impCE=this.value; impPreview=[]; impStep=impCE?2:1; renderImportar();
   });
-  document.getElementById('imp-ev-sel').addEventListener('change', function(){
+  if(evSel) evSel.addEventListener('change', function(){
     impEV=this.value; impPreview=[]; impStep=impEV?2:1; renderImportar();
   });
 
@@ -1143,7 +1204,8 @@ function renderImportar(){
 }
 
 // ── CSV parsing ──────────────────────────────────────────
-function parseCSVLine(line) {
+// Parser CSV con separador configurable (',' o ';'). Soporta campos entrecomillados con "" como escape.
+function parseCSVLineSep(line, sep) {
   const fields=[]; let i=0;
   while(i<=line.length){
     if(i===line.length){fields.push('');break;}
@@ -1154,14 +1216,24 @@ function parseCSVLine(line) {
         else if(line[i]==='"'){i++;break;}
         else{field+=line[i++];}
       }
-      fields.push(field);if(line[i]===',')i++;else break;
+      fields.push(field);if(line[i]===sep)i++;else break;
     } else {
       let field='';
-      while(i<line.length&&line[i]!==',')field+=line[i++];
-      fields.push(field);if(line[i]===',')i++;else break;
+      while(i<line.length&&line[i]!==sep)field+=line[i++];
+      fields.push(field);if(line[i]===sep)i++;else break;
     }
   }
   return fields;
+}
+
+// Wrapper para compatibilidad con el flujo Moodle original (separador = coma).
+function parseCSVLine(line) { return parseCSVLineSep(line, ','); }
+
+// Detecta el separador más probable contando ocurrencias en la primer línea.
+function detectCSVSep(firstLine){
+  const commas    = (firstLine.match(/,/g)||[]).length;
+  const semicolons= (firstLine.match(/;/g)||[]).length;
+  return semicolons > commas ? ';' : ',';
 }
 
 window.parseCSV = function() {
@@ -1223,7 +1295,7 @@ window.confirmImport=async function(){
     const k=await dbPush('alumnos',data);
     DB.alumnos[k]=data;
   }
-  // Borrar notas existentes para este RA+CE+EV
+  // Borrar notas existentes para este RA+CE+EV (Opción A — decisión documentada)
   const existentes=Object.entries(DB.notas||{}).filter(([,n])=>n.raId===impRA&&n.ceId===impCE&&n.evId===impEV).map(([k])=>k);
   for(const k of existentes){await dbRemove(`notas/${k}`);delete DB.notas[k];}
   // Insertar nuevas notas
@@ -1234,6 +1306,457 @@ window.confirmImport=async function(){
   }
   toast(`✅ ${impPreview.length} notas cargadas`);
   impPreview=[];impFile=null;impStep=1;
+  renderImportar();
+};
+
+// ═══════════════════════════════════════════════════════════
+//  FLUJO 2: CSV Multi-CE (examen tomado fuera de Moodle)
+// ═══════════════════════════════════════════════════════════
+// Header esperado por columna (a partir de la 4ta): "RAxx CE_xx_yy ppp"
+//   - RAxx: id del RA tal como está cargado en /datos/ra/ (ej: RA01)
+//   - CE_xx_yy: key del CE en /datos/ce/ (con _ en lugar de .)
+//   - ppp: total de puntos del CE (entero o decimal)
+// Cada celda contiene los puntos que el alumno hizo BIEN o MAL (configurable).
+// Validaciones bloqueantes:
+//   - Header sin separador detectable o sin columnas de notas → bloquea.
+//   - Header con RA o CE que NO existe en la materia → bloquea.
+//   - Header con CE existente pero cuyo raId NO coincide con el RA del header → bloquea.
+//   - Celda con valor > total → bloquea.
+// Celdas vacías: se omiten (no se crea registro de nota).
+
+function parseMultiCEHeader(h){
+  // Tolera espacios múltiples / espacios al inicio o final.
+  const parts = String(h||'').trim().split(/\s+/);
+  if(parts.length<3) return null;
+  const ra = parts[0];
+  const ce = parts[1];
+  const total = parseFloat(String(parts[2]).replace(',','.'));
+  if(!ra || !ce || !isFinite(total) || total<=0) return null;
+  return { raId:ra, ceId:ce, total };
+}
+
+function renderImportMultiCE(){
+  const evArr = objArr(DB.ev).sort((a,b)=>a._key.localeCompare(b._key));
+  const step1 = !!impM_EV;
+  const hasFile = !!impM_File;
+  const hasPreview = impM_Cols.length>0 || impM_Rows.length>0 || impM_HeaderErr;
+  const headerHasErrors = impM_HeaderErr || impM_Cols.some(c=>!c.valid);
+  const cellErrors = [];
+  if(!headerHasErrors){
+    impM_Rows.forEach(function(r,ri){
+      r.vals.forEach(function(v,ci){
+        if(v.err) cellErrors.push({ri, ci, alumno:(r.apellido+', '+r.nombre).trim()||r.email, col:impM_Cols[ci], err:v.err, raw:v.raw});
+      });
+    });
+  }
+  const canConfirm = hasPreview && !headerHasErrors && cellErrors.length===0 && impM_Rows.length>0;
+
+  // Conteo de celdas que se importarán (válidas, no vacías)
+  let toImport=0, nuevos=0;
+  if(canConfirm){
+    impM_Rows.forEach(function(r){
+      if(!r.alumnoExisting) nuevos++;
+      r.vals.forEach(function(v){ if(v.ok && v.hasValue) toImport++; });
+    });
+  }
+
+  return ''+
+    '<div class="card">'+
+      '<div class="card-title" style="font-size:.78rem;border-bottom:none;padding-bottom:0">Paso 1 — Identificar la evaluación</div>'+
+      '<div class="steps">'+
+        '<div class="step active">1 EV + Modo</div>'+
+        '<div class="step '+(step1?'active':'')+'">2 Subir CSV</div>'+
+        '<div class="step '+(hasPreview?'active':'')+'">3 Revisar</div>'+
+      '</div>'+
+      '<div class="card">'+
+        '<div class="card-title">Paso 1 — Instancia y modo de puntaje</div>'+
+        '<div class="form-row">'+
+          '<div class="form-group">'+
+            '<label>Instancia</label>'+
+            '<select id="mce-ev-sel">'+
+              '<option value="">— EV —</option>'+
+              evArr.map(e=>'<option value="'+e._key+'" '+(impM_EV===e._key?'selected':'')+'>'+(e._key)+(e.nombre?' — '+esc(e.nombre):'')+'</option>').join('')+
+            '</select>'+
+          '</div>'+
+        '</div>'+
+        '<label style="margin-top:.5rem">¿Qué representan los valores cargados en cada celda?</label>'+
+        '<div class="mce-modesel">'+
+          '<button type="button" class="mce-modebtn '+(impM_PointMode==='mal'?'on':'')+'" data-mce-pmode="mal">'+
+            '&#10060; Puntos hechos <strong>MAL</strong>'+
+            '<span class="mce-mini">nota = ((total - valor) / total) × 10</span>'+
+          '</button>'+
+          '<button type="button" class="mce-modebtn '+(impM_PointMode==='bien'?'on':'')+'" data-mce-pmode="bien">'+
+            '&#9989; Puntos hechos <strong>BIEN</strong>'+
+            '<span class="mce-mini">nota = (valor / total) × 10</span>'+
+          '</button>'+
+        '</div>'+
+        (step1?'<div class="alert alert-info" style="margin-top:.6rem">&#9989; <strong>EV '+esc(impM_EV)+'</strong> · modo: <strong>'+(impM_PointMode==='mal'?'Puntos MAL':'Puntos BIEN')+'</strong></div>':'')+
+      '</div>'+
+
+      (step1?
+        '<div class="card">'+
+          '<div class="card-title">Paso 2 — Archivo CSV</div>'+
+          '<div class="file-drop" id="mce-fdrop">'+
+            '<div style="font-size:1.5rem">'+(hasFile?'✅':'📂')+'</div>'+
+            '<div style="font-weight:600;margin:.25rem 0">'+(hasFile?esc(impM_File.name):'Click o arrastrar CSV aquí')+'</div>'+
+            '<div class="text-sm text-muted">Formato: <code>Apellido(s); Nombre; Dirección de correo; RAxx CE_xx_yy ppp; …</code> (separador <code>;</code> o <code>,</code>)</div>'+
+          '</div>'+
+          '<input type="file" id="mce-csv-inp" accept=".csv" style="display:none">'+
+          (hasFile&&!hasPreview?'<div style="margin-top:.65rem"><button class="btn btn-primary" id="mce-btn-proc">&#128269; Procesar CSV</button></div>':'')+
+        '</div>'
+      :'')+
+
+      (hasPreview ? renderMultiCEPreview(headerHasErrors, cellErrors, toImport, nuevos, canConfirm) : '')+
+    '</div>';
+}
+
+function renderMultiCEPreview(headerHasErrors, cellErrors, toImport, nuevos, canConfirm){
+  let html = '<div class="card">'+
+    '<div class="card-title">Paso 3 — Revisar</div>';
+
+  // Bloque de errores generales (separador / columnas mínimas / header inválido)
+  if(impM_HeaderErr){
+    html += '<div class="mce-err-list"><strong>&#9888; No se puede importar:</strong><div>'+esc(impM_HeaderErr)+'</div></div>';
+    html += '<div class="btn-group" style="margin-top:.85rem">'+
+      '<button class="btn btn-outline" id="mce-btn-cancel">&#8617; Cancelar</button>'+
+    '</div></div>';
+    return html;
+  }
+
+  // Tabla de columnas detectadas
+  html += '<div class="bold" style="margin-bottom:.35rem">Columnas detectadas ('+impM_Cols.length+')</div>'+
+    '<div class="tbl-wrap" style="max-height:200px;overflow-y:auto;margin-bottom:.6rem"><table class="mce-col-tbl">'+
+      '<thead><tr><th>#</th><th>RA</th><th>CE</th><th class="center">Total</th><th>Estado</th></tr></thead>'+
+      '<tbody>'+
+      impM_Cols.map(function(c,i){
+        return '<tr>'+
+          '<td>'+(i+1)+'</td>'+
+          '<td>'+esc(c.raId||'?')+'</td>'+
+          '<td>'+esc(c.ceId||'?')+'</td>'+
+          '<td class="center">'+(c.total!=null?c.total:'?')+'</td>'+
+          '<td>'+(c.valid
+              ? '<span class="niv niv-V">&#9989; OK</span>'
+              : '<span class="niv niv-P">&#10060; '+esc(c.err||'inválida')+'</span>')+
+          '</td>'+
+        '</tr>';
+      }).join('')+
+      '</tbody></table></div>';
+
+  // Si el header tiene errores → bloqueo
+  if(headerHasErrors){
+    const bad = impM_Cols.filter(c=>!c.valid);
+    html += '<div class="mce-err-list"><strong>&#9888; Importación bloqueada por '+bad.length+' columna(s) inválida(s).</strong>'+
+      '<div style="margin-top:.3rem">Corregí el archivo (header con formato <code>RAxx CE_xx_yy ppp</code> usando RA y CE existentes en la materia) y volvé a procesar.</div>'+
+      '</div>';
+    html += '<div class="btn-group" style="margin-top:.85rem">'+
+      '<button class="btn btn-outline" id="mce-btn-cancel">&#8617; Cancelar</button>'+
+    '</div></div>';
+    return html;
+  }
+
+  // Si hay celdas con error → bloqueo (listado)
+  if(cellErrors.length){
+    html += '<div class="mce-err-list"><strong>&#9888; Importación bloqueada por '+cellErrors.length+' celda(s) inválida(s):</strong><ul>'+
+      cellErrors.slice(0,80).map(function(e){
+        return '<li><strong>'+esc(e.alumno)+'</strong> · '+esc(e.col?(e.col.raId+' / '+e.col.ceId):'?')+' = <code>'+esc(String(e.raw))+'</code> — '+esc(e.err)+'</li>';
+      }).join('')+
+      (cellErrors.length>80?'<li>… y '+(cellErrors.length-80)+' más</li>':'')+
+      '</ul></div>';
+  }
+
+  // Tabla pivote alumno × CE
+  html += '<div class="bold" style="margin-bottom:.35rem">Alumnos ('+impM_Rows.length+')</div>';
+  html += '<div class="tbl-wrap" style="max-height:400px;overflow:auto"><table>'+
+    '<thead><tr>'+
+      '<th style="position:sticky;left:0;background:#111;z-index:2">Alumno</th>'+
+      '<th>Estado</th>'+
+      impM_Cols.map(function(c){
+        return '<th class="center" title="Total: '+c.total+'">'+esc(c.raId)+'<br><span class="mce-mini" style="color:rgba(255,255,255,.6)">'+esc(c.ceId)+' /'+c.total+'</span></th>';
+      }).join('')+
+    '</tr></thead>'+
+    '<tbody>'+
+    impM_Rows.map(function(r){
+      return '<tr>'+
+        '<td style="position:sticky;left:0;background:#fff;z-index:1"><div class="bold">'+esc(r.apellido)+', '+esc(r.nombre)+'</div><div class="text-sm text-muted">'+esc(r.email)+'</div></td>'+
+        '<td>'+(r.alumnoExisting
+            ? '<span class="niv niv-V">&#9989; Encontrado</span>'
+            : '<span class="niv niv-B">&#9888; Nuevo</span>')+'</td>'+
+        r.vals.map(function(v){
+          if(!v.hasValue) return '<td class="center mce-cell-blank">—</td>';
+          if(v.err)       return '<td class="center mce-cell-bad" title="'+esc(v.err)+'">'+esc(String(v.raw))+'</td>';
+          var nv=getNivel(v.nota);
+          var tt=esc(String(v.raw))+' / '+esc(String(v.col.total))+' → '+notaFmtStr(v.nota)+'/10';
+          return '<td class="center"><span class="nota-pill '+(nv?'nota-'+nv.code:'nota-N')+'" title="'+tt+'">'+notaFmtStr(v.nota)+'</span></td>';
+        }).join('')+
+      '</tr>';
+    }).join('')+
+    '</tbody></table></div>';
+
+  // Resumen final + botones
+  html += '<div style="margin-top:.7rem;display:flex;gap:.4rem;flex-wrap:wrap">'+
+    '<span class="chip chip-ok">&#9989; '+toImport+' notas a importar</span>'+
+    (nuevos?'<span class="chip chip-warn">&#9888; '+nuevos+' alumnos nuevos a crear</span>':'')+
+    '<span class="chip">'+impM_Cols.length+' columnas</span>'+
+  '</div>';
+
+  html += '<div class="btn-group" style="margin-top:.85rem">'+
+    (canConfirm?'<button class="btn btn-ok" id="mce-btn-confirm">&#9989; Confirmar importación</button>':'')+
+    '<button class="btn btn-outline" id="mce-btn-cancel">&#8617; Cancelar</button>'+
+  '</div></div>';
+  return html;
+}
+
+function attachMultiCEEvents(){
+  const evSel=document.getElementById('mce-ev-sel');
+  if(evSel) evSel.addEventListener('change', function(){
+    impM_EV=this.value;
+    impM_File=null; impM_Cols=[]; impM_Rows=[]; impM_HeaderErr='';
+    renderImportar();
+  });
+  document.querySelectorAll('[data-mce-pmode]').forEach(function(b){
+    b.addEventListener('click', function(){
+      impM_PointMode=this.dataset.mcePmode;
+      if(impM_Cols.length || impM_Rows.length){
+        impM_Cols=[]; impM_Rows=[]; impM_HeaderErr='';
+      }
+      renderImportar();
+    });
+  });
+  const fdrop=document.getElementById('mce-fdrop');
+  if(fdrop){
+    fdrop.onclick=function(){ document.getElementById('mce-csv-inp').click(); };
+    fdrop.ondragover=function(e){ e.preventDefault(); fdrop.classList.add('over'); };
+    fdrop.ondragleave=function(){ fdrop.classList.remove('over'); };
+    fdrop.ondrop=function(e){
+      e.preventDefault(); fdrop.classList.remove('over');
+      const f=e.dataTransfer.files[0];
+      if(f){ impM_File=f; impM_Cols=[]; impM_Rows=[]; impM_HeaderErr=''; renderImportar(); }
+    };
+  }
+  const csvInp=document.getElementById('mce-csv-inp');
+  if(csvInp) csvInp.onchange=function(e){
+    const f=e.target.files[0];
+    if(f){ impM_File=f; impM_Cols=[]; impM_Rows=[]; impM_HeaderErr=''; renderImportar(); }
+  };
+  const btnProc=document.getElementById('mce-btn-proc');
+  if(btnProc) btnProc.onclick=parseCSVMultiCE;
+  const btnConf=document.getElementById('mce-btn-confirm');
+  if(btnConf) btnConf.onclick=confirmImportMultiCE;
+  const btnCanc=document.getElementById('mce-btn-cancel');
+  if(btnCanc) btnCanc.onclick=function(){
+    impM_File=null; impM_Cols=[]; impM_Rows=[]; impM_HeaderErr='';
+    renderImportar();
+  };
+}
+
+// Decodificador con fallback de encoding: prueba UTF-8 estricto y, si falla
+// (caracteres de reemplazo en el texto), reintenta como windows-1252.
+function decodeCSVBytes(arrayBuffer){
+  try{
+    const txt = new TextDecoder('utf-8', {fatal:true}).decode(arrayBuffer);
+    return txt;
+  }catch(e){
+    try{ return new TextDecoder('windows-1252').decode(arrayBuffer); }
+    catch(e2){ return new TextDecoder('utf-8').decode(arrayBuffer); }
+  }
+}
+
+window.parseCSVMultiCE = function(){
+  if(!impM_File) return;
+  if(!impM_EV){ toast('Seleccioná la instancia (EV) primero','err'); return; }
+  const btn=document.getElementById('mce-btn-proc');
+  if(btn){ btn.disabled=true; btn.textContent='Procesando...'; }
+
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const text = decodeCSVBytes(e.target.result);
+      const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+      if(lines.length<2){
+        impM_HeaderErr='El archivo no tiene filas de alumnos (sólo header o vacío).';
+        impM_Cols=[]; impM_Rows=[]; renderImportar(); return;
+      }
+      const sep = detectCSVSep(lines[0]);
+      const header = parseCSVLineSep(lines[0], sep).map(h=>String(h||'').trim());
+
+      // Localizar columnas de identidad (apellido/nombre/email) — flexible
+      const lowerHdr = header.map(h=>h.toLowerCase());
+      const findIdx = (preds)=>lowerHdr.findIndex(h=>preds.some(p=>p.test(h)));
+      const idxAp    = findIdx([/^apellido/, /^apellidos/]);
+      const idxNom   = findIdx([/^nombre/]);
+      const idxEmail = findIdx([/correo/, /^email/, /e-?mail/]);
+      if(idxEmail<0){
+        impM_HeaderErr='No se encontró la columna de email (esperaba "Dirección de correo" o similar). Separador detectado: "'+sep+'".';
+        impM_Cols=[]; impM_Rows=[]; renderImportar(); return;
+      }
+
+      // Columnas de notas: todas las que no son de identidad y matchean el patrón RAxx CE_xx_yy ppp
+      const idCols = new Set([idxAp, idxNom, idxEmail].filter(i=>i>=0));
+      const cols = [];
+      for(let j=0;j<header.length;j++){
+        if(idCols.has(j)) continue;
+        const h = header[j];
+        if(!h) continue; // columna vacía al final
+        const parsed = parseMultiCEHeader(h);
+        if(!parsed){
+          cols.push({ idx:j, raId:'', ceId:'', total:null, valid:false, err:'Header no reconocido: "'+h+'"' });
+          continue;
+        }
+        // Validar contra DB.ra y DB.ce
+        const raExists = !!DB.ra[parsed.raId];
+        const ceObj = DB.ce[parsed.ceId];
+        if(!raExists && !ceObj){
+          cols.push({ idx:j, raId:parsed.raId, ceId:parsed.ceId, total:parsed.total, valid:false, err:'RA y CE no existen en la materia' });
+        } else if(!raExists){
+          cols.push({ idx:j, raId:parsed.raId, ceId:parsed.ceId, total:parsed.total, valid:false, err:'RA "'+parsed.raId+'" no existe' });
+        } else if(!ceObj){
+          cols.push({ idx:j, raId:parsed.raId, ceId:parsed.ceId, total:parsed.total, valid:false, err:'CE "'+parsed.ceId+'" no existe' });
+        } else if(String(ceObj.raId||'') !== parsed.raId){
+          cols.push({ idx:j, raId:parsed.raId, ceId:parsed.ceId, total:parsed.total, valid:false, err:'El CE "'+parsed.ceId+'" pertenece al RA "'+ceObj.raId+'", no a "'+parsed.raId+'"' });
+        } else {
+          cols.push({ idx:j, raId:parsed.raId, ceId:parsed.ceId, total:parsed.total, valid:true, err:'' });
+        }
+      }
+      if(!cols.length){
+        impM_HeaderErr='No se detectó ninguna columna con header tipo "RAxx CE_xx_yy ppp". Separador detectado: "'+sep+'".';
+        impM_Cols=[]; impM_Rows=[]; renderImportar(); return;
+      }
+
+      // Procesar filas
+      const alumnos = objArr(DB.alumnos);
+      const rows = [];
+      for(let i=1;i<lines.length;i++){
+        const vals = parseCSVLineSep(lines[i], sep);
+        if(!vals.some(v=>String(v||'').trim())) continue;
+        const email = String((idxEmail>=0?vals[idxEmail]:'')||'').trim().toLowerCase();
+        const apellido = String((idxAp>=0?vals[idxAp]:'')||'').trim();
+        const nombre = String((idxNom>=0?vals[idxNom]:'')||'').trim();
+        if(!email) continue; // sin email no se puede asociar
+        const alumnoExisting = alumnos.find(s=>String(s.email||'').toLowerCase()===email);
+        const valsArr = cols.map(c=>{
+          if(!c.valid) return { hasValue:false, ok:false, err:'', raw:'', nota:null, col:c };
+          const raw = String(vals[c.idx]==null?'':vals[c.idx]).trim();
+          if(raw==='') return { hasValue:false, ok:true, err:'', raw:'', nota:null, col:c };
+          const num = parseFloat(raw.replace(',','.'));
+          if(!isFinite(num) || num<0) return { hasValue:true, ok:false, err:'Valor no numérico o negativo', raw, nota:null, col:c };
+          if(num > c.total) return { hasValue:true, ok:false, err:'Valor '+num+' > total '+c.total, raw, nota:null, col:c };
+          // Cálculo según modo
+          const puntosBien = (impM_PointMode==='mal') ? (c.total - num) : num;
+          const nota = Math.round((puntosBien / c.total) * 10 * 100) / 100;
+          return { hasValue:true, ok:true, err:'', raw, nota, col:c };
+        });
+        rows.push({ email, apellido, nombre, alumnoExisting:!!alumnoExisting, vals:valsArr });
+      }
+      if(!rows.length){
+        impM_HeaderErr='No se detectaron filas de alumnos con email en el archivo.';
+        impM_Cols=cols; impM_Rows=[]; renderImportar(); return;
+      }
+      impM_Cols = cols;
+      impM_Rows = rows;
+      impM_HeaderErr='';
+      renderImportar();
+    }catch(err){
+      toast('Error procesando CSV: '+err.message,'err');
+      if(btn){ btn.disabled=false; btn.textContent='Procesar CSV'; }
+    }
+  };
+  reader.onerror=function(){
+    toast('No se pudo leer el archivo','err');
+    if(btn){ btn.disabled=false; btn.textContent='Procesar CSV'; }
+  };
+  reader.readAsArrayBuffer(impM_File);
+};
+
+window.confirmImportMultiCE = async function(){
+  if(!impM_EV){ toast('Falta la instancia (EV)','err'); return; }
+  if(impM_HeaderErr || impM_Cols.some(c=>!c.valid)){ toast('Hay errores en el header','err'); return; }
+  if(impM_Rows.some(r=>r.vals.some(v=>v.err))){ toast('Hay celdas con errores','err'); return; }
+
+  // Combinaciones (RA+CE+EV) presentes en el archivo
+  const combos = new Map();
+  impM_Cols.forEach(c=>{
+    if(!c.valid) return;
+    const k = c.raId+'|'+c.ceId+'|'+impM_EV;
+    if(!combos.has(k)) combos.set(k, { raId:c.raId, ceId:c.ceId, evId:impM_EV });
+  });
+  // Combinaciones que ya tienen notas en Firebase (las que se van a regenerar)
+  const yaCargadas = [];
+  for(const [k, combo] of combos){
+    const hay = Object.values(DB.notas||{}).some(n =>
+      n.raId===combo.raId && n.ceId===combo.ceId && n.evId===combo.evId);
+    if(hay) yaCargadas.push(combo);
+  }
+  const nuevos = impM_Rows.filter(r=>!r.alumnoExisting).length;
+  let totalNotas = 0;
+  impM_Rows.forEach(r=>r.vals.forEach(v=>{ if(v.ok && v.hasValue) totalNotas++; }));
+
+  let msg = '<div style="text-align:left">'+
+    '<div>Se importarán <strong>'+totalNotas+'</strong> notas en <strong>'+combos.size+'</strong> combinación(es) RA/CE para la instancia <strong>'+esc(impM_EV)+'</strong>.</div>';
+  if(nuevos) msg += '<div style="margin-top:.4rem">Se crearán <strong>'+nuevos+'</strong> alumno(s) nuevo(s).</div>';
+  if(yaCargadas.length){
+    msg += '<div style="margin-top:.6rem;color:#7f1d1d"><strong>&#9888; Atención:</strong> '+yaCargadas.length+' combinación(es) ya tienen notas cargadas. Se <strong>borrarán completamente</strong> y se reemplazarán (incluyendo notas manuales).</div>';
+    msg += '<ul style="font-size:.75rem;margin:.3rem 0 0 1.1rem;max-height:120px;overflow-y:auto">'+
+      yaCargadas.map(c=>'<li>'+esc(c.raId)+' / '+esc(c.ceId)+' / '+esc(c.evId)+'</li>').join('')+
+      '</ul>';
+  }
+  msg += '</div>';
+
+  const ok = await tgbConfirm({
+    title:'Confirmar importación Multi-CE',
+    msg,
+    okLabel:'Importar',
+    danger: yaCargadas.length>0
+  });
+  if(!ok) return;
+
+  // 1) Alta de alumnos nuevos
+  for(const r of impM_Rows.filter(x=>!x.alumnoExisting)){
+    const data = {
+      apellido: (r.apellido||'').toUpperCase(),
+      nombre:   (r.nombre||'').toUpperCase(),
+      email:    r.email,
+      legajo:   '',
+      año:      new Date().getFullYear(),
+      grupo:    0
+    };
+    const k = await dbPush('alumnos', data);
+    DB.alumnos[k] = data;
+  }
+
+  // 2) Borrar notas previas de cada combinación (Opción A)
+  for(const [, combo] of combos){
+    const existentes = Object.entries(DB.notas||{})
+      .filter(([,n]) => n.raId===combo.raId && n.ceId===combo.ceId && n.evId===combo.evId)
+      .map(([k])=>k);
+    for(const k of existentes){
+      await dbRemove('notas/'+k);
+      delete DB.notas[k];
+    }
+  }
+
+  // 3) Insertar las nuevas notas (sólo celdas válidas y con valor)
+  let insertadas = 0;
+  for(const r of impM_Rows){
+    for(const v of r.vals){
+      if(!v.ok || !v.hasValue) continue;
+      const data = {
+        email: r.email,
+        raId:  v.col.raId,
+        ceId:  v.col.ceId,
+        evId:  impM_EV,
+        nota:  v.nota,
+        notaoriginal: parseFloat(String(v.raw).replace(',','.')),
+        notamanual: null,
+        ts: Date.now()
+      };
+      const k = await dbPush('notas', data);
+      DB.notas[k] = data;
+      insertadas++;
+    }
+  }
+
+  toast('✅ '+insertadas+' notas importadas en '+combos.size+' combinación(es)');
+  impM_File=null; impM_Cols=[]; impM_Rows=[]; impM_HeaderErr='';
   renderImportar();
 };
 
@@ -2692,6 +3215,7 @@ window.renderConfig = renderConfig;
 window.renderAlumnos = renderAlumnos;
 window.renderImportar = renderImportar;
 window.renderReportes = renderReportes;
+// Nota: parseCSVMultiCE y confirmImportMultiCE ya se exponen en su declaración (window.X = function...)
 window.switchTab = switchTab;
 </script>
 </body>
