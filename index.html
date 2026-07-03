@@ -2335,10 +2335,6 @@ function generatePDF(reportType, reportDetail, students, ceIds) {
   const materia = esc(DB.config.materia||'');
   const año     = DB.config.año || new Date().getFullYear();
 
-  const raIds = [...new Set(ceIds.map(function(ceId){
-    const c=DB.ce[ceId]; return c?c.raId:'?';
-  }))].sort();
-
   // Level colors
   const nivFill={P:[254,226,226],B:[254,243,199],A:[219,234,254],V:[220,252,231],N:[243,244,246]};
   const nivTxt ={P:[153,27,27],B:[124,45,18],A:[30,64,175],V:[20,83,45],N:[107,114,128]};
@@ -2347,50 +2343,16 @@ function generatePDF(reportType, reportDetail, students, ceIds) {
     if(!nivTxt[l.code])  nivTxt[l.code]=[80,80,80];
   });
 
-  // Column widths — name shorter to avoid wrapping
+  // Column widths — name + grupo fijos; los CE se reparten el resto del ancho
   const nameW = 46; const grpW = 9;
-  const avail = PW - 20 - nameW - grpW;
-  const ceW   = Math.min(30, Math.max(15, Math.floor(avail / Math.max(ceIds.length,1))));
+  const avail = PW - 20 - nameW - grpW;                       // ancho disponible para columnas CE
+  const MIN_CE_W = 15;                                        // ancho mínimo legible por CE
+  const perPage = Math.max(1, Math.floor(avail / MIN_CE_W));  // cuántos CE entran por bloque de páginas
 
-  // Table headers
-  const raHeader = ['Apellido y Nombre','Grp'];
-  raIds.forEach(function(ra){
-    const raCEs=ceIds.filter(function(ceId){return DB.ce[ceId]&&DB.ce[ceId].raId===ra;});
-    raHeader.push(ra);
-    for(var i=1;i<raCEs.length;i++) raHeader.push('');
-  });
-  const ceHeader=['',''];
-  ceIds.forEach(function(ceId){
-    const c=DB.ce[ceId]; ceHeader.push(c&&c.id?c.id:ceId);
-  });
-
-  // Body rows — name max 26 chars to fit in 46mm without wrapping
-  const body=students.map(function(s){
-    const full=s.apellido+', '+s.nombre;
-    const name=full.length>26?full.substring(0,25)+'.':full;
-    const row=[name, s.grupo>0?String(s.grupo):''];
-    ceIds.forEach(function(ceId){
-      const c=DB.ce[ceId];
-      if(!c){row.push('');return;}
-      const notas=objArr(DB.notas).filter(function(n){
-        return String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase()&&n.ceId===ceId;
-      });
-      if(!notas.length){row.push('');return;}
-      const best=Math.max.apply(null,notas.map(function(n){return notaEfectiva(n);}));
-      const nv=getNivel(best);const code=nv?nv.code:'N';
-      const mode=getCellMode(code);const tipos=getEtqTipos();
-      var cv='';
-      tipos.forEach(function(tipo){
-        if(mode.types&&mode.types.includes(tipo)){const etq=getEtq(tipo,code);if(etq)cv+=(cv?' | ':'')+etq;}
-      });
-      if(mode.nota!==false||!cv) cv+=(cv?' | ':'')+best.toFixed(2);
-      row.push(cv);
-    });
-    return row;
-  });
-
-  const colStyles={0:{cellWidth:nameW,fontStyle:'bold'},1:{cellWidth:grpW,halign:'center'}};
-  ceIds.forEach(function(_,i){colStyles[i+2]={cellWidth:ceW,halign:'center',fontSize:6.5};});
+  // Partir los CE en bloques que entren a lo ancho de la hoja (evita que se corten columnas)
+  const ceChunks = [];
+  for(var ci=0; ci<ceIds.length; ci+=perPage) ceChunks.push(ceIds.slice(ci, ci+perPage));
+  if(!ceChunks.length) ceChunks.push([]);
 
   // ── Draw header on every page ─────────────────────────────────────────────
   const HDR_H = 12; // reduced header height
@@ -2409,60 +2371,122 @@ function generatePDF(reportType, reportDetail, students, ceIds) {
     doc.text(materia+' | '+año, PW-8, 8, {align:'right', maxWidth:160});
   }
 
-  // Initial page header + title
-  drawPageHeader();
-  doc.setTextColor(...navy);
-  doc.setFontSize(10); doc.setFont('helvetica','bold');
-  doc.text(fullTitle, 8, HDR_H+8);
-
   const TABLE_TOP_MARGIN = HDR_H + 14;
-  doc.autoTable({
-    startY: TABLE_TOP_MARGIN,
-    margin: { top: TABLE_TOP_MARGIN, left: 10, right: 10, bottom: 12 },
-    head: [raHeader, ceHeader],
-    body: body,
-    theme: 'grid',
-    styles:{fontSize:7,cellPadding:{top:1.6,right:2,bottom:1.6,left:2},overflow:'ellipsize',minCellHeight:5.5},
-    headStyles:{fillColor:navy,textColor:255,fontStyle:'bold',fontSize:7,minCellHeight:6.5},
-    alternateRowStyles:{fillColor:[248,249,252]},
-    columnStyles:colStyles,
-    didParseCell:function(data){
-      if(data.section==='head'&&data.row.index===0){
-        const txt=String(data.cell.text||'');
-        if(raIds.includes(txt)){data.cell.styles.fillColor=navy2;data.cell.styles.halign='center';}
-      }
-      if(data.section==='head'&&data.row.index===1){
-        data.cell.styles.fillColor=navy3;data.cell.styles.fontSize=6;
-      }
-      if(data.section==='body'&&data.column.index>=2){
-        const val=String(data.cell.raw||'').trim();
-        const num=parseFloat(val.replace(',','.'));
-        if(!isNaN(num)&&val!==''){
-          const nv=getNivel(num);const code=nv?nv.code:'N';
-          data.cell.styles.fillColor=nivFill[code]||nivFill.N;
-          data.cell.styles.textColor=nivTxt[code]||nivTxt.N;
-          data.cell.styles.fontStyle='bold';
+
+  // Dibujar un bloque de columnas CE por vez — cada bloque arranca en página nueva.
+  // Todas las páginas repiten Nombre + Grupo, así ninguna columna queda cortada.
+  ceChunks.forEach(function(chunkCeIds, chunkIdx){
+    if(chunkIdx>0) doc.addPage();
+
+    // Ancho por CE: se expande para llenar la hoja si el bloque tiene pocos CE
+    const ceW = Math.min(30, Math.max(MIN_CE_W, Math.floor(avail / Math.max(chunkCeIds.length,1))));
+
+    // RA presentes en este bloque (para el header agrupado)
+    const chunkRaIds = [...new Set(chunkCeIds.map(function(ceId){
+      const c=DB.ce[ceId]; return c?c.raId:'?';
+    }))].sort();
+
+    // Table headers
+    const raHeader = ['Apellido y Nombre','Grp'];
+    chunkRaIds.forEach(function(ra){
+      const raCEs=chunkCeIds.filter(function(ceId){return DB.ce[ceId]&&DB.ce[ceId].raId===ra;});
+      raHeader.push(ra);
+      for(var i=1;i<raCEs.length;i++) raHeader.push('');
+    });
+    const ceHeader=['',''];
+    chunkCeIds.forEach(function(ceId){
+      const c=DB.ce[ceId]; ceHeader.push(c&&c.id?c.id:ceId);
+    });
+
+    // Body rows — name max 26 chars to fit in 46mm without wrapping
+    const body=students.map(function(s){
+      const full=s.apellido+', '+s.nombre;
+      const name=full.length>26?full.substring(0,25)+'.':full;
+      const row=[name, s.grupo>0?String(s.grupo):''];
+      chunkCeIds.forEach(function(ceId){
+        const c=DB.ce[ceId];
+        if(!c){row.push('');return;}
+        const notas=objArr(DB.notas).filter(function(n){
+          return String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase()&&n.ceId===ceId;
+        });
+        if(!notas.length){row.push('');return;}
+        const best=Math.max.apply(null,notas.map(function(n){return notaEfectiva(n);}));
+        const nv=getNivel(best);const code=nv?nv.code:'N';
+        const mode=getCellMode(code);const tipos=getEtqTipos();
+        var cv='';
+        tipos.forEach(function(tipo){
+          if(mode.types&&mode.types.includes(tipo)){const etq=getEtq(tipo,code);if(etq)cv+=(cv?' | ':'')+etq;}
+        });
+        if(mode.nota!==false||!cv) cv+=(cv?' | ':'')+best.toFixed(2);
+        row.push(cv);
+      });
+      return row;
+    });
+
+    const colStyles={0:{cellWidth:nameW,fontStyle:'bold'},1:{cellWidth:grpW,halign:'center'}};
+    chunkCeIds.forEach(function(_,i){colStyles[i+2]={cellWidth:ceW,halign:'center',fontSize:6.5};});
+
+    // Título del bloque — indica qué CE incluye cuando hay más de un bloque
+    const chunkTitle = ceChunks.length>1
+      ? fullTitle+'  (CE '+(chunkIdx*perPage+1)+'-'+(chunkIdx*perPage+chunkCeIds.length)+' de '+ceIds.length+')'
+      : fullTitle;
+
+    // Header + título en la primera página del bloque
+    drawPageHeader();
+    doc.setTextColor(...navy);
+    doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text(chunkTitle, 8, HDR_H+8);
+
+    const chunkFirstPage = doc.internal.getCurrentPageInfo().pageNumber;
+
+    doc.autoTable({
+      startY: TABLE_TOP_MARGIN,
+      margin: { top: TABLE_TOP_MARGIN, left: 10, right: 10, bottom: 12 },
+      head: [raHeader, ceHeader],
+      body: body,
+      theme: 'grid',
+      styles:{fontSize:7,cellPadding:{top:1.6,right:2,bottom:1.6,left:2},overflow:'ellipsize',minCellHeight:5.5},
+      headStyles:{fillColor:navy,textColor:255,fontStyle:'bold',fontSize:7,minCellHeight:6.5},
+      alternateRowStyles:{fillColor:[248,249,252]},
+      columnStyles:colStyles,
+      didParseCell:function(data){
+        if(data.section==='head'&&data.row.index===0){
+          const txt=String(data.cell.text||'');
+          if(chunkRaIds.includes(txt)){data.cell.styles.fillColor=navy2;data.cell.styles.halign='center';}
         }
-        if(val) data.cell.styles.halign='center';
+        if(data.section==='head'&&data.row.index===1){
+          data.cell.styles.fillColor=navy3;data.cell.styles.fontSize=6;
+        }
+        if(data.section==='body'&&data.column.index>=2){
+          const val=String(data.cell.raw||'').trim();
+          const num=parseFloat(val.replace(',','.'));
+          if(!isNaN(num)&&val!==''){
+            const nv=getNivel(num);const code=nv?nv.code:'N';
+            data.cell.styles.fillColor=nivFill[code]||nivFill.N;
+            data.cell.styles.textColor=nivTxt[code]||nivTxt.N;
+            data.cell.styles.fontStyle='bold';
+          }
+          if(val) data.cell.styles.halign='center';
+        }
+      },
+      willDrawPage:function(data){
+        drawPageHeader();
+        if(doc.internal.getCurrentPageInfo().pageNumber!==chunkFirstPage){
+          doc.setTextColor(...navy);
+          doc.setFontSize(8); doc.setFont('helvetica','bold');
+          doc.text(chunkTitle, 8, HDR_H+7);
+        }
+      },
+      didDrawPage:function(data){
+        // Footer
+        const pg=doc.internal.getCurrentPageInfo().pageNumber;
+        const tot=doc.internal.getNumberOfPages();
+        doc.setFontSize(6); doc.setTextColor(160,160,160); doc.setFont('helvetica','normal');
+        const ds=new Date().toLocaleDateString('es-AR')+' '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+        doc.text('Generado: '+ds, 8, 207);
+        doc.text('Pagina '+pg+(tot>1?' de '+tot:''), PW-8, 207,{align:'right'});
       }
-    },
-    willDrawPage:function(data){
-      drawPageHeader();
-      if(doc.internal.getCurrentPageInfo().pageNumber>1){
-        doc.setTextColor(...navy);
-        doc.setFontSize(8); doc.setFont('helvetica','bold');
-        doc.text(fullTitle, 8, HDR_H+7);
-      }
-    },
-    didDrawPage:function(data){
-      // Footer
-      const pg=doc.internal.getCurrentPageInfo().pageNumber;
-      const tot=doc.internal.getNumberOfPages();
-      doc.setFontSize(6); doc.setTextColor(160,160,160); doc.setFont('helvetica','normal');
-      const ds=new Date().toLocaleDateString('es-AR')+' '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-      doc.text('Generado: '+ds, 8, 207);
-      doc.text('Pagina '+pg+(tot>1?' de '+tot:''), PW-8, 207,{align:'right'});
-    }
+    });
   });
 
   doc.save((reportType+'_'+reportDetail).replace(/[^a-zA-Z0-9]/g,'_')+'.pdf');
