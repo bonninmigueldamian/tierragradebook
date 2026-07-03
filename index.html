@@ -2147,7 +2147,7 @@ window.delGrpNotas=async function(raId,ceId,evId){
 // ═══════════════════════════════════════════════════════════
 //  TAB: REPORTES
 // ═══════════════════════════════════════════════════════════
-let repType='instancia',repEV='',repLevels=[],repNivelMode='any';
+let repType='instancia',repEV='',repLevels=[],repNivelMode='any',repNivelNota='best';
 // Filtros del reporte "Distribución por Nivel"
 let repDistEV='', repDistRA='', repDistCE='';
 
@@ -3149,6 +3149,13 @@ function renderRepNivel(){
       '<div class="card-title">Filtrar por Nivel</div>'+
       '<div class="flex gap-sm wrap" id="niv-btns" style="margin-bottom:.75rem">'+nivelBtns+'</div>'+
       '<div class="form-row items-c">'+
+        '<div class="form-group" style="max-width:340px">'+
+          '<label>Nota a evaluar</label>'+
+          '<select id="nivel-nota-sel">'+
+            '<option value="best" '+(repNivelNota==='best'?'selected':'')+'>Mejor nota por RA/CE</option>'+
+            '<option value="any" '+(repNivelNota==='any'?'selected':'')+'>Cualquier nota en cualquier instancia</option>'+
+          '</select>'+
+        '</div>'+
         '<div class="form-group" style="max-width:360px">'+
           '<label>Condicion</label>'+
           '<select id="nivel-mode-sel">'+
@@ -3178,6 +3185,7 @@ function renderRepNivel(){
     });
   });
   document.getElementById('nivel-mode-sel').addEventListener('change', function(){ repNivelMode=this.value; });
+  document.getElementById('nivel-nota-sel').addEventListener('change', function(){ repNivelNota=this.value; });
   document.getElementById('btn-gen-nivel').addEventListener('click', genNivelResult);
 }
 
@@ -3185,6 +3193,7 @@ function genNivelResult(){
   const result = document.getElementById('rep-nivel-result');
   if(!result) return;
   repNivelMode = document.getElementById('nivel-mode-sel').value;
+  repNivelNota = document.getElementById('nivel-nota-sel').value;
   if(!repLevels.length){
     result.innerHTML = '<div class="alert alert-warn">Selecciona al menos un nivel.</div>';
     return;
@@ -3200,19 +3209,31 @@ function genNivelResult(){
     const l=niveles.find(function(x){return x.code===c;}); return l?l.nombre:c;
   }).join(', ');
   const alumnos = sortAlumnos(objArr(DB.alumnos));
+
+  // Valores de nota a evaluar por alumno segun el criterio elegido:
+  //  - 'best': mejor notaEfectiva por RA/CE (mismo criterio que el reporte "Mejor Nota RA/CE")
+  //  - 'any' : todas las notas individuales (cada instancia) del alumno
+  function nivelValues(s){
+    if(repNivelNota==='any'){
+      return notas
+        .filter(function(n){ return String(n.email||'').toLowerCase()===String(s.email||'').toLowerCase(); })
+        .map(function(n){ return notaEfectiva(n); });
+    }
+    const vals=[];
+    allCeIds.forEach(function(ceId){
+      const c=DB.ce[ceId]; if(!c) return;
+      const best=getBestNotaEfectiva(s.email,c.raId,ceId);
+      if(best!==null) vals.push(best);
+    });
+    return vals;
+  }
+  function enNivel(v){ const nv=getNivel(v); return nv&&repLevels.includes(nv.code); }
+
   const filtered = alumnos.filter(function(s){
-    const ceConNotas = allCeIds.filter(function(ceId){
-      const c=DB.ce[ceId]; return c&&getBestNotaEfectiva(s.email,c.raId,ceId)!==null;
-    });
-    if(!ceConNotas.length) return false;
-    if(repNivelMode==='any') return ceConNotas.some(function(ceId){
-      const c=DB.ce[ceId]; const best=getBestNotaEfectiva(s.email,c.raId,ceId);
-      const nv=getNivel(best); return nv&&repLevels.includes(nv.code);
-    });
-    return ceConNotas.every(function(ceId){
-      const c=DB.ce[ceId]; const best=getBestNotaEfectiva(s.email,c.raId,ceId);
-      const nv=getNivel(best); return nv&&repLevels.includes(nv.code);
-    });
+    const vals = nivelValues(s);
+    if(!vals.length) return false;
+    if(repNivelMode==='any') return vals.some(enNivel);
+    return vals.every(enNivel);
   }).map(function(s){
     const cells=allCeIds.map(function(ceId){
       const c=DB.ce[ceId];
